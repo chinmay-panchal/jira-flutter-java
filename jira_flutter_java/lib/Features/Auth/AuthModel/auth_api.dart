@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../core/network/api_constants.dart';
-import '../AuthModel/login_request.dart';
-import '../AuthModel/login_response.dart';
-import '../AuthModel/signup_request.dart';
+import 'login_request.dart';
+import 'login_response.dart';
+import 'signup_request.dart';
 
 class AuthApi {
   final Map<String, String> _headers = {'Content-Type': 'application/json'};
@@ -72,7 +72,6 @@ class AuthApi {
       body: jsonEncode({'email': email, 'newPassword': newPassword}),
     );
 
-    print("AFTER BACKEND");
     if (response.statusCode != 200) {
       final error = jsonDecode(response.body);
       throw Exception(error['message'] ?? 'Reset password failed');
