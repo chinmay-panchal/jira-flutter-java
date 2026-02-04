@@ -5,6 +5,7 @@ import '../UserModel/user_model.dart';
 class UserViewModel extends ChangeNotifier {
   final UserApi _api = UserApi();
 
+  List<UserModel> _allUsers = [];
   List<UserModel> users = [];
   bool isLoading = false;
 
@@ -12,19 +13,21 @@ class UserViewModel extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
 
-    users = await _api.getAllUsers();
+    _allUsers = await _api.getAllUsers();
+    users = _allUsers;
 
     isLoading = false;
     notifyListeners();
   }
 
-  Future<void> search(String q) async {
-    if (q.isEmpty) {
-      await loadUsers();
-      return;
-    }
+  void search(String q) {
+    final query = q.toLowerCase().trim();
 
-    users = await _api.searchUsers(q);
+    users = _allUsers.where((u) {
+      final fullName = '${u.firstName} ${u.lastName}'.toLowerCase();
+      return fullName.contains(query) || u.email.toLowerCase().contains(query);
+    }).toList();
+
     notifyListeners();
   }
 }
