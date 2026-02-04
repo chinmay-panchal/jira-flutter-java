@@ -2,22 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../AuthViewModel/auth_view_model.dart';
-import 'otp_screen.dart';
+import 'reset_pass_screen.dart';
 
-class ForgotPassScreen extends StatefulWidget {
-  const ForgotPassScreen({super.key});
+class OtpScreen extends StatefulWidget {
+  const OtpScreen({super.key});
 
   @override
-  State<ForgotPassScreen> createState() => _ForgotPassScreen();
+  State<OtpScreen> createState() => _OtpScreenState();
 }
 
-class _ForgotPassScreen extends State<ForgotPassScreen> {
+class _OtpScreenState extends State<OtpScreen> {
   final _formKey = GlobalKey<FormState>();
-  final emailController = TextEditingController();
+  final otpController = TextEditingController();
 
   @override
   void dispose() {
-    emailController.dispose();
+    otpController.dispose();
     super.dispose();
   }
 
@@ -39,23 +39,21 @@ class _ForgotPassScreen extends State<ForgotPassScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            const Image(
-              image: AssetImage("assets/images/forgot-pass.jpg"),
-            ),
+            const Image(image: AssetImage("assets/images/forgot_pass.jpg")),
             const SizedBox(height: 32),
             Form(
               key: _formKey,
               child: TextFormField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
+                controller: otpController,
+                keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  hintText: "Email",
+                  hintText: "Enter OTP",
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
                 validator: (v) =>
-                    v == null || v.isEmpty ? 'Email required' : null,
+                    v == null || v.length != 6 ? 'OTP must be 6 digits' : null,
               ),
             ),
             const SizedBox(height: 24),
@@ -65,27 +63,45 @@ class _ForgotPassScreen extends State<ForgotPassScreen> {
                   : () async {
                       if (!_formKey.currentState!.validate()) return;
 
-                      await authVm.sendOtp(
-                        emailController.text.trim(),
+                      // Clear any previous errors
+                      authVm.clearError();
+
+                      // Verify OTP and get result
+                      final success = await authVm.verifyOtp(
+                        otpController.text.trim(),
                       );
 
-                      if (authVm.errorMessage != null && mounted) {
+                      if (!mounted) return;
+
+                      // Handle failure case
+                      if (!success) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(authVm.errorMessage!),
+                            content: Text(
+                              authVm.errorMessage ?? 'Invalid OTP. Please try again.',
+                            ),
                             backgroundColor: Colors.red,
                           ),
                         );
+                        return; // STOP here - don't navigate
                       }
 
-                      if (authVm.errorMessage == null && mounted) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const OtpScreen(),
-                          ),
-                        );
-                      }
+                      // Handle success case
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('OTP verified successfully!'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+
+                      // Navigate to reset password screen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ResetPasswordScreen(),
+                        ),
+                      );
                     },
               child: Container(
                 height: 56,
@@ -105,7 +121,7 @@ class _ForgotPassScreen extends State<ForgotPassScreen> {
                         ),
                       )
                     : const Text(
-                        "Send OTP",
+                        "Verify OTP",
                         style: TextStyle(color: Colors.black),
                       ),
               ),

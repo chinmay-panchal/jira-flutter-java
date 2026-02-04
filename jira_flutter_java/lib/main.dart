@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthView/login_screen.dart';
+import 'package:jira_flutter_java/Features/Auth/AuthViewModel/auth_view_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,24 +15,29 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Flutter Demo',
-      theme: ThemeData.dark(),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: Colors.black,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.black,
-          elevation: 0,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthViewModel()),
+      ],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Flutter Demo',
+        theme: ThemeData.dark(),
+        darkTheme: ThemeData(
+          brightness: Brightness.dark,
+          scaffoldBackgroundColor: Colors.black,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.black,
+            elevation: 0,
+          ),
+          colorScheme: const ColorScheme.dark(
+            primary: Colors.white,
+            secondary: Colors.grey,
+          ),
         ),
-        colorScheme: const ColorScheme.dark(
-          primary: Colors.white,
-          secondary: Colors.grey,
-        ),
+        themeMode: ThemeMode.dark,
+        home: const LoginScreen(),
       ),
-      themeMode: ThemeMode.dark,
-      home: LoginScreen(),
     );
   }
 }

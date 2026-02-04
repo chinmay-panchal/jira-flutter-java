@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthView/login_screen.dart';
+import 'package:jira_flutter_java/Features/Auth/AuthViewModel/auth_view_model.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -15,6 +16,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final firstNameController = TextEditingController();
   final lastNameController = TextEditingController();
   final emailController = TextEditingController();
+  final mobileController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
 
@@ -23,6 +25,7 @@ class _SignupScreenState extends State<SignupScreen> {
     firstNameController.dispose();
     lastNameController.dispose();
     emailController.dispose();
+    mobileController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
     super.dispose();
@@ -30,6 +33,8 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authVm = context.watch<AuthViewModel>();
+
     return Scaffold(
       body: SingleChildScrollView(
         child: Center(
@@ -53,7 +58,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   child: Column(
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
                             child: TextFormField(
@@ -64,12 +68,10 @@ class _SignupScreenState extends State<SignupScreen> {
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Required';
-                                }
-                                return null;
-                              },
+                              validator: (v) =>
+                                  v == null || v.trim().isEmpty
+                                      ? 'Required'
+                                      : null,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -82,12 +84,10 @@ class _SignupScreenState extends State<SignupScreen> {
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Required';
-                                }
-                                return null;
-                              },
+                              validator: (v) =>
+                                  v == null || v.trim().isEmpty
+                                      ? 'Required'
+                                      : null,
                             ),
                           ),
                         ],
@@ -102,14 +102,34 @@ class _SignupScreenState extends State<SignupScreen> {
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
                             return 'Email is required';
                           }
                           if (!RegExp(
                             r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                          ).hasMatch(value)) {
+                          ).hasMatch(v)) {
                             return 'Enter a valid email';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: mobileController,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(
+                          hintText: "Mobile Number",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Mobile number is required';
+                          }
+                          if (!RegExp(r'^[6-9]\d{9}$').hasMatch(v)) {
+                            return 'Enter a valid mobile number';
                           }
                           return null;
                         },
@@ -124,11 +144,11 @@ class _SignupScreenState extends State<SignupScreen> {
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
+                        validator: (v) {
+                          if (v == null || v.isEmpty) {
                             return 'Password is required';
                           }
-                          if (value.length < 6) {
+                          if (v.length < 6) {
                             return 'Password must be at least 6 characters';
                           }
                           return null;
@@ -144,11 +164,11 @@ class _SignupScreenState extends State<SignupScreen> {
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
+                        validator: (v) {
+                          if (v == null || v.isEmpty) {
                             return 'Please confirm password';
                           }
-                          if (value != passwordController.text) {
+                          if (v != passwordController.text) {
                             return 'Passwords do not match';
                           }
                           return null;
@@ -159,42 +179,44 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 16),
                 InkWell(
-                  onTap: () async {
-                    if (!_formKey.currentState!.validate()) {
-                      return;
-                    }
+                  onTap: authVm.isLoading
+                      ? null
+                      : () async {
+                          if (!_formKey.currentState!.validate()) return;
 
-                    try {
-                      await FirebaseAuth.instance
-                          .createUserWithEmailAndPassword(
+                          await authVm.signup(
                             email: emailController.text.trim(),
                             password: passwordController.text.trim(),
+                            firstName: firstNameController.text.trim(),
+                            lastName: lastNameController.text.trim(),
+                            mobile: mobileController.text.trim(),
                           );
 
-                      if (!mounted) return;
+                          if (authVm.errorMessage != null && mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(authVm.errorMessage!),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Account created successfully!'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
+                          if (authVm.errorMessage == null && mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content:
+                                    Text('Account created successfully!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
 
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      );
-                    } on FirebaseAuthException catch (e) {
-                      if (!mounted) return;
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(e.message ?? 'Signup failed'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  },
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const LoginScreen()),
+                            );
+                          }
+                        },
                   child: Container(
                     height: 56,
                     width: double.infinity,
@@ -204,10 +226,19 @@ class _SignupScreenState extends State<SignupScreen> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Text(
-                      "Register",
-                      style: TextStyle(color: Colors.black),
-                    ),
+                    child: authVm.isLoading
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.black,
+                            ),
+                          )
+                        : const Text(
+                            "Register",
+                            style: TextStyle(color: Colors.black),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -215,7 +246,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      MaterialPageRoute(
+                          builder: (_) => const LoginScreen()),
                     );
                   },
                   child: const Text("Already have an account? Sign In"),
