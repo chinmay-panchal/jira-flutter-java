@@ -2,25 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../AuthViewModel/auth_view_model.dart';
-import 'otp_screen.dart';
 
-class ForgotPassScreen extends StatefulWidget {
-  const ForgotPassScreen({super.key});
+class ResetPasswordScreen extends StatefulWidget {
+  const ResetPasswordScreen({super.key});
 
   @override
-  State<ForgotPassScreen> createState() => _ForgotPassScreen();
+  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
 }
 
-class _ForgotPassScreen extends State<ForgotPassScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final emailController = TextEditingController();
-
-  @override
-  void dispose() {
-    emailController.dispose();
-    super.dispose();
-  }
-
+class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final authVm = context.watch<AuthViewModel>();
@@ -39,35 +29,24 @@ class _ForgotPassScreen extends State<ForgotPassScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            const Image(
-              image: AssetImage("assets/images/forgot-pass.jpg"),
+            const Image(image: AssetImage("assets/images/reset-pass.avif")),
+            const SizedBox(height: 32),
+            const Text(
+              "OTP Verified Successfully!",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "We'll send you a password reset link to your email. Click the button below to receive it.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 32),
-            Form(
-              key: _formKey,
-              child: TextFormField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  hintText: "Email",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Email required' : null,
-              ),
-            ),
-            const SizedBox(height: 24),
             InkWell(
               onTap: authVm.isLoading
                   ? null
                   : () async {
-                      if (!_formKey.currentState!.validate()) return;
-
-                      await authVm.sendOtp(
-                        emailController.text.trim(),
-                      );
+                      await authVm.resetPassword();
 
                       if (authVm.errorMessage != null && mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -79,12 +58,17 @@ class _ForgotPassScreen extends State<ForgotPassScreen> {
                       }
 
                       if (authVm.errorMessage == null && mounted) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const OtpScreen(),
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Password reset email sent! Check your inbox.',
+                            ),
+                            backgroundColor: Colors.green,
                           ),
                         );
+
+                        // Go back to login screen
+                        Navigator.popUntil(context, (r) => r.isFirst);
                       }
                     },
               child: Container(
@@ -105,7 +89,7 @@ class _ForgotPassScreen extends State<ForgotPassScreen> {
                         ),
                       )
                     : const Text(
-                        "Send OTP",
+                        "Send Reset Email",
                         style: TextStyle(color: Colors.black),
                       ),
               ),

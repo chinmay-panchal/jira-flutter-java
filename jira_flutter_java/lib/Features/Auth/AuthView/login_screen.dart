@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthView/forgot_pass_screen.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthView/signup_screen.dart';
+import 'package:jira_flutter_java/Features/Auth/AuthViewModel/auth_view_model.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -25,6 +26,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authVm = context.watch<AuthViewModel>();
+
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: SingleChildScrollView(
@@ -105,36 +108,34 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 16),
               InkWell(
-                onTap: () async {
-                  if (!_formKey.currentState!.validate()) {
-                    return;
-                  }
+                onTap: authVm.isLoading
+                    ? null
+                    : () async {
+                        if (!_formKey.currentState!.validate()) return;
 
-                  try {
-                    await FirebaseAuth.instance.signInWithEmailAndPassword(
-                      email: emailController.text.trim(),
-                      password: passwordController.text.trim(),
-                    );
+                        await authVm.login(
+                          email: emailController.text.trim(),
+                          password: passwordController.text.trim(),
+                        );
 
-                    if (!mounted) return;
+                        if (!mounted) return;
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Login successful'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  } on FirebaseAuthException catch (e) {
-                    if (!mounted) return;
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(e.message ?? 'Login failed'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                },
+                        if (authVm.errorMessage != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(authVm.errorMessage!),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        } else if (authVm.jwtToken != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Login successful'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      },
                 child: Container(
                   height: 56,
                   width: double.infinity,
@@ -144,10 +145,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Text(
-                    "Sign in",
-                    style: TextStyle(color: Colors.black),
-                  ),
+                  child: authVm.isLoading
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.black,
+                          ),
+                        )
+                      : const Text(
+                          "Sign in",
+                          style: TextStyle(color: Colors.black),
+                        ),
                 ),
               ),
               const SizedBox(height: 16),
