@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:jira_flutter_java/Features/Project/ProjectView/memer_select_dialog.dart';
 import 'package:provider/provider.dart';
 
-import '../../User/UserViewModel/user_view_model.dart';
-import '../../User/UserModel/user_model.dart';
 import '../ProjectModel/project_form_model.dart';
 import '../ProjectViewModel/project_view_model.dart';
 
@@ -16,66 +15,94 @@ class CreateProjectDialog extends StatefulWidget {
 class _CreateProjectDialogState extends State<CreateProjectDialog> {
   final nameCtrl = TextEditingController();
   final descCtrl = TextEditingController();
-  final searchCtrl = TextEditingController();
+
+  static const int descLimit = 100;
   DateTime? deadline;
 
   final Set<String> selectedUids = {};
 
-  @override
-  void initState() {
-    super.initState();
-    context.read<UserViewModel>().loadUsers();
-  }
+  OutlineInputBorder _border() =>
+      OutlineInputBorder(borderRadius: BorderRadius.circular(14));
 
   @override
   Widget build(BuildContext context) {
-    final userVm = context.watch<UserViewModel>();
-
     return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Text('Create Project'),
       content: SizedBox(
-        width: 360,
+        width: 380,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name')),
-            const SizedBox(height: 8),
-            TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Description')),
-            const SizedBox(height: 8),
             TextField(
-              controller: searchCtrl,
-              decoration: const InputDecoration(labelText: 'Search members'),
-              onChanged: userVm.search,
+              controller: nameCtrl,
+              decoration: InputDecoration(
+                labelText: 'Project name',
+                border: _border(),
+              ),
             ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 180,
-              child: userVm.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView.builder(
-                      itemCount: userVm.users.length,
-                      itemBuilder: (_, i) {
-                        final UserModel u = userVm.users[i];
-                        final selected = selectedUids.contains(u.uid);
+            const SizedBox(height: 12),
+            TextField(
+              controller: descCtrl,
+              maxLines: 3,
+              maxLength: descLimit,
+              decoration: InputDecoration(
+                labelText: 'Description',
+                border: _border(),
+                counterText: '',
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                '${descCtrl.text.length} / $descLimit',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            const SizedBox(height: 12),
 
-                        return ListTile(
-                          title: Text('${u.firstName} ${u.lastName}'),
-                          subtitle: Text(u.email),
-                          trailing: Checkbox(
-                            value: selected,
-                            onChanged: (v) {
-                              setState(() {
-                                v == true
-                                    ? selectedUids.add(u.uid)
-                                    : selectedUids.remove(u.uid);
-                              });
-                            },
-                          ),
-                        );
-                      },
+            /// MEMBERS PICKER FIELD
+            InkWell(
+              onTap: () async {
+                final result = await showDialog<Set<String>>(
+                  context: context,
+                  builder: (_) => MemberSelectDialog(
+                    initialSelected: selectedUids,
+                  ),
+                );
+
+                if (result != null) {
+                  setState(() {
+                    selectedUids
+                      ..clear()
+                      ..addAll(result);
+                  });
+                }
+              },
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade400),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        selectedUids.isEmpty
+                            ? 'Select members'
+                            : '${selectedUids.length} members selected',
+                      ),
                     ),
+                    const Icon(Icons.arrow_drop_down),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 8),
+
+            const SizedBox(height: 12),
             InkWell(
               onTap: () async {
                 final d = await showDatePicker(
@@ -90,17 +117,23 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
                 children: [
                   const Icon(Icons.calendar_today, size: 18),
                   const SizedBox(width: 8),
-                  Text(deadline == null
-                      ? 'Select deadline'
-                      : '${deadline!.day}/${deadline!.month}/${deadline!.year}'),
+                  Text(
+                    deadline == null
+                        ? 'Select deadline'
+                        : '${deadline!.day}/${deadline!.month}/${deadline!.year}',
+                  ),
                 ],
               ),
             ),
           ],
         ),
       ),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         ElevatedButton(
           onPressed: deadline == null
               ? null
@@ -115,6 +148,11 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
                       );
                   Navigator.pop(context);
                 },
+          style: ElevatedButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
           child: const Text('Create'),
         ),
       ],
