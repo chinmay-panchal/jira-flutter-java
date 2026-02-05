@@ -20,6 +20,17 @@ class UserViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> loadProjectMembers(int projectId) async {
+    isLoading = true;
+    notifyListeners();
+
+    _allUsers = await _api.getProjectMembers(projectId);
+    users = _allUsers;
+
+    isLoading = false;
+    notifyListeners();
+  }
+
   void search(String q) {
     final query = q.toLowerCase().trim();
 

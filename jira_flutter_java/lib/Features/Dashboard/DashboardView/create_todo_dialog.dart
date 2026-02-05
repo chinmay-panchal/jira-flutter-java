@@ -1,25 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:jira_flutter_java/Features/Project/ProjectView/memer_select_dialog.dart';
 import 'package:provider/provider.dart';
-
+import '../../Project/ProjectView/memer_select_dialog.dart';
 import '../../User/UserViewModel/user_view_model.dart';
-import '../ProjectModel/project_form_model.dart';
-import '../ProjectViewModel/project_view_model.dart';
+import '../DashboardViewModel/task_view_model.dart';
 
-class CreateProjectDialog extends StatefulWidget {
-  const CreateProjectDialog({super.key});
+class CreateTodoDialog extends StatefulWidget {
+  final int projectId;
+
+  const CreateTodoDialog({super.key, required this.projectId});
 
   @override
-  State<CreateProjectDialog> createState() => _CreateProjectDialogState();
+  State<CreateTodoDialog> createState() => _CreateTodoDialogState();
 }
 
-class _CreateProjectDialogState extends State<CreateProjectDialog> {
-  final nameCtrl = TextEditingController();
+class _CreateTodoDialogState extends State<CreateTodoDialog> {
+  final titleCtrl = TextEditingController();
   final descCtrl = TextEditingController();
 
   static const int descLimit = 100;
-  DateTime? deadline;
-
   final Set<String> selectedUids = {};
 
   OutlineInputBorder _border() =>
@@ -29,18 +27,19 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text('Create Project'),
+      title: const Text('Create Todo'),
       content: SizedBox(
         width: 380,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              controller: nameCtrl,
+              controller: titleCtrl,
               decoration: InputDecoration(
-                labelText: 'Project name',
+                labelText: 'Title',
                 border: _border(),
               ),
+              onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -65,13 +64,15 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
 
             InkWell(
               onTap: () async {
-                await context.read<UserViewModel>().loadUsers();
+                await context.read<UserViewModel>().loadProjectMembers(
+                  widget.projectId,
+                );
 
                 final result = await showDialog<Set<String>>(
                   context: context,
                   builder: (_) => MemberSelectDialog(
                     initialSelected: selectedUids,
-                    singleSelect: false,
+                    singleSelect: true,
                   ),
                 );
 
@@ -97,37 +98,13 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
                     Expanded(
                       child: Text(
                         selectedUids.isEmpty
-                            ? 'Select members'
-                            : '${selectedUids.length} members selected',
+                            ? 'Assign member'
+                            : '1 member selected',
                       ),
                     ),
                     const Icon(Icons.arrow_drop_down),
                   ],
                 ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-            InkWell(
-              onTap: () async {
-                final d = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.now(),
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime(2100),
-                );
-                if (d != null) setState(() => deadline = d);
-              },
-              child: Row(
-                children: [
-                  const Icon(Icons.calendar_today, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    deadline == null
-                        ? 'Select deadline'
-                        : '${deadline!.day}/${deadline!.month}/${deadline!.year}',
-                  ),
-                ],
               ),
             ),
           ],
@@ -140,16 +117,16 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: deadline == null
+          onPressed: titleCtrl.text.trim().isEmpty
               ? null
               : () async {
-                  await context.read<ProjectViewModel>().createProject(
-                    ProjectFormModel(
-                      name: nameCtrl.text.trim(),
-                      description: descCtrl.text.trim(),
-                      members: selectedUids.toList(),
-                      lastDate: deadline!,
-                    ),
+                  await context.read<TaskViewModel>().createTask(
+                    projectId: widget.projectId,
+                    title: titleCtrl.text.trim(),
+                    description: descCtrl.text.trim(),
+                    assignedUserUid: selectedUids.isNotEmpty
+                        ? selectedUids.first
+                        : null,
                   );
                   Navigator.pop(context);
                 },

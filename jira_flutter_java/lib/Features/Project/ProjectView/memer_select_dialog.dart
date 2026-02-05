@@ -6,10 +6,12 @@ import '../../User/UserViewModel/user_view_model.dart';
 
 class MemberSelectDialog extends StatefulWidget {
   final Set<String> initialSelected;
+  final bool singleSelect;
 
   const MemberSelectDialog({
     super.key,
     required this.initialSelected,
+    this.singleSelect = false,
   });
 
   @override
@@ -24,7 +26,6 @@ class _MemberSelectDialogState extends State<MemberSelectDialog> {
   void initState() {
     super.initState();
     selectedUids = {...widget.initialSelected};
-    context.read<UserViewModel>().loadUsers();
   }
 
   @override
@@ -68,9 +69,16 @@ class _MemberSelectDialogState extends State<MemberSelectDialog> {
                             value: selected,
                             onChanged: (v) {
                               setState(() {
-                                v == true
-                                    ? selectedUids.add(u.uid)
-                                    : selectedUids.remove(u.uid);
+                                if (widget.singleSelect) {
+                                  selectedUids.clear();
+                                  if (v == true) {
+                                    selectedUids.add(u.uid);
+                                  }
+                                } else {
+                                  v == true
+                                      ? selectedUids.add(u.uid)
+                                      : selectedUids.remove(u.uid);
+                                }
                               });
                             },
                           ),

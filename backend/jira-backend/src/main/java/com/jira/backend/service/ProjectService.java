@@ -65,6 +65,28 @@ public class ProjectService {
                 .collect(Collectors.toList());
     }
 
+    public List<User> getProjectMembers(Long projectId) {
+        String uid = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+
+        User requester = userRepository.findByUid(uid)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+
+        boolean isMember = project.getMembers()
+                .stream()
+                .anyMatch(u -> u.getId().equals(requester.getId()));
+
+        if (!isMember) {
+            throw new RuntimeException("Access denied");
+        }
+
+        return project.getMembers();
+    }
+
     private ProjectResponse map(Project project) {
         return ProjectResponse.builder()
                 .id(project.getId())
