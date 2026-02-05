@@ -2,6 +2,7 @@ package com.jira.backend.controller;
 
 import com.jira.backend.dto.CreateTaskRequest;
 import com.jira.backend.dto.TaskResponse;
+import com.jira.backend.dto.UpdateTaskStatusRequest;
 import com.jira.backend.service.TaskService;
 import org.springframework.web.bind.annotation.*;
 
@@ -9,6 +10,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/tasks")
+@CrossOrigin
 public class TaskController {
 
     private final TaskService taskService;
@@ -25,5 +27,13 @@ public class TaskController {
     @GetMapping("/project/{projectId}")
     public List<TaskResponse> getTasksByProject(@PathVariable Long projectId) {
         return taskService.getTasksByProject(projectId);
+    }
+
+    @PatchMapping("/{taskId}/status")
+    public TaskResponse updateTaskStatus(
+            @PathVariable Long taskId,
+            @RequestBody UpdateTaskStatusRequest request
+    ) {
+        return taskService.updateTaskStatus(taskId, request);
     }
 }

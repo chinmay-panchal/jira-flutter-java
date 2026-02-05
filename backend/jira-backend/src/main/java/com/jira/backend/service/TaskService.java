@@ -2,6 +2,7 @@ package com.jira.backend.service;
 
 import com.jira.backend.dto.CreateTaskRequest;
 import com.jira.backend.dto.TaskResponse;
+import com.jira.backend.dto.UpdateTaskStatusRequest;
 import com.jira.backend.entity.Project;
 import com.jira.backend.entity.Task;
 import com.jira.backend.entity.TaskStatus;
@@ -38,19 +39,29 @@ public class TaskService {
         Project project = projectRepository.findById(request.getProjectId())
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
-        User creator = userRepository.findByUid(uid)
+        userRepository.findByUid(uid)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         User assignedUser = null;
         if (request.getAssignedUserUid() != null) {
             assignedUser = userRepository.findByUid(request.getAssignedUserUid())
                     .orElseThrow(() -> new RuntimeException("Assigned user not found"));
+
+            final Long assignedUserId = assignedUser.getId();
+
+            boolean isMember = project.getMembers().stream()
+                    .anyMatch(u -> u.getId().equals(assignedUserId));
+
+            if (!isMember) {
+                throw new RuntimeException("Assigned user is not a project member");
+            }
         }
+
 
         Task task = Task.builder()
                 .title(request.getTitle())
                 .description(request.getDescription())
-                .status(request.getStatus() != null ? request.getStatus() : TaskStatus.TODO)
+                .status(TaskStatus.TODO)
                 .project(project)
                 .assignedTo(assignedUser)
                 .build();
@@ -66,6 +77,16 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
+    public TaskResponse updateTaskStatus(Long taskId, UpdateTaskStatusRequest request) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        task.setStatus(request.getStatus());
+        Task updated = taskRepository.save(task);
+
+        return mapToResponse(updated);
+    }
+
     private TaskResponse mapToResponse(Task task) {
         return TaskResponse.builder()
                 .id(task.getId())
@@ -74,7 +95,9 @@ public class TaskService {
                 .status(task.getStatus())
                 .projectId(task.getProject().getId())
                 .assignedUserUid(
-                        task.getAssignedTo() != null ? task.getAssignedTo().getUid() : null
+                        task.getAssignedTo() != null
+                                ? task.getAssignedTo().getUid()
+                                : null
                 )
                 .createdAt(task.getCreatedAt())
                 .updatedAt(task.getUpdatedAt())

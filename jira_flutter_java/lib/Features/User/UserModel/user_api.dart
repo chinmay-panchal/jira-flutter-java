@@ -19,15 +19,19 @@ class UserApi {
     return list.map((e) => UserModel.fromJson(e)).toList();
   }
 
-  Future<List<UserModel>> searchUsers(String q) async {
+  Future<List<UserModel>> getProjectMembers(int projectId) async {
     final token = await TokenStorage.getToken();
     final response = await http.get(
-      Uri.parse('${ApiConstants.baseUrl}${ApiConstants.userSearch}?q=$q'),
+      Uri.parse('${ApiConstants.baseUrl}/projects/$projectId/members'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
     );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed');
+    }
 
     final list = jsonDecode(response.body) as List;
     return list.map((e) => UserModel.fromJson(e)).toList();
