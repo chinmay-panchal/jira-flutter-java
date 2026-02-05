@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../../../Core/network/api_constants.dart';
+import 'package:jira_flutter_java/Core/network/api_constants.dart';
 import '../../../Core/storage/token_storage.dart';
 import 'user_model.dart';
 

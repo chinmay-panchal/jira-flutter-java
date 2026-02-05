@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../../../core/network/api_constants.dart';
+import 'package:jira_flutter_java/Core/network/api_constants.dart';
 import 'login_request.dart';
 import 'login_response.dart';
 import 'signup_request.dart';
