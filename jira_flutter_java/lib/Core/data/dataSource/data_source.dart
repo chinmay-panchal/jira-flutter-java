@@ -17,6 +17,12 @@ abstract class DataSource {
   Future<List<ProjectResponse>> getMyProjects();
   Future<void> createProject(CreateProjectRequest request);
 
+  // ✅ REMOVE MEMBER (creator only)
+  Future<void> removeProjectMember({
+    required int projectId,
+    required String memberUid,
+  });
+
   /* -------- TASK -------- */
   Future<List<TaskModel>> getTasksByProject(int projectId);
   Future<void> createTask({

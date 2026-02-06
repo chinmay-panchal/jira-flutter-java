@@ -28,6 +28,8 @@ class ProjectDetailsDialog extends StatelessWidget {
       );
     }
 
+    final bool isCreator = authVm.uid == project.creatorUid;
+
     final List<String> orderedMembers = [
       project.creatorUid,
       ...project.members.where((uid) => uid != project.creatorUid),
@@ -78,84 +80,89 @@ class ProjectDetailsDialog extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            orderedMembers.isEmpty
-                ? const Text('No members assigned')
-                : ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 240),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: orderedMembers.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 6),
-                      itemBuilder: (_, i) {
-                        final uid = orderedMembers[i];
-                        final user = userVm.byUid(uid);
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 240),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: orderedMembers.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                itemBuilder: (_, i) {
+                  final uid = orderedMembers[i];
+                  final user = userVm.byUid(uid);
 
-                        final isCreator = uid == project.creatorUid;
-                        final isYou = uid == authVm.uid;
+                  final bool memberIsCreator = uid == project.creatorUid;
+                  final bool isYou = uid == authVm.uid;
 
-                        final displayName = isYou
-                            ? 'You'
-                            : (user?.email ?? uid);
+                  final displayName = isYou ? 'You' : (user?.email ?? uid);
 
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: memberIsCreator
+                            ? Colors.blue
+                            : Colors.grey.shade300,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: memberIsCreator
+                              ? Colors.blue
+                              : Colors.grey.shade400,
+                          child: Icon(
+                            memberIsCreator ? Icons.star : Icons.person,
+                            size: 16,
+                            color: Colors.white,
                           ),
-                          decoration: BoxDecoration(
-                            color: isCreator
-                                ? Colors.blue.withValues(alpha: 0.08)
-                                : null,
-                            border: Border.all(
-                              color: isCreator
-                                  ? Colors.blue
-                                  : Colors.grey.shade300,
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                        ),
+                        const SizedBox(width: 12),
 
-                          child: Row(
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              CircleAvatar(
-                                radius: 16,
-                                backgroundColor: isCreator
-                                    ? Colors.blue
-                                    : Colors.grey.shade400,
-                                child: Icon(
-                                  isCreator ? Icons.star : Icons.person,
-                                  size: 16,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      displayName,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    if (isCreator)
-                                      Text(
-                                        'Project Creator',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: Colors.blue,
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                              Text(displayName),
+                              if (memberIsCreator)
+                                Text(
+                                  'Project Creator',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Colors.blue,
+                                        fontWeight: FontWeight.w600,
                                       ),
-                                  ],
                                 ),
-                              ),
                             ],
                           ),
-                        );
-                      },
+                        ),
+
+                        // ❌ REMOVE ICON — creator only, not for creator row
+                        if (isCreator && !memberIsCreator)
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline),
+                            color: Colors.red,
+                            tooltip: 'Remove member',
+                            onPressed: () async {
+                              await projectVm.removeMember(
+                                projectId: project.id,
+                                memberUid: uid,
+                              );
+
+                              // reload members list visually
+                              await projectVm.loadProjects();
+                            },
+                          ),
+                      ],
                     ),
-                  ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),

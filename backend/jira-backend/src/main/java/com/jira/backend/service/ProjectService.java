@@ -87,6 +87,33 @@ public class ProjectService {
         return project.getMembers();
     }
 
+    // ✅ REMOVE MEMBER (creator only)
+    public void removeMember(Long projectId, String memberUid, String currentUserUid) {
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+
+        User currentUser = userRepository.findByUid(currentUserUid)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!project.getCreator().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("Only creator can remove members");
+        }
+
+        if (project.getCreator().getUid().equals(memberUid)) {
+            throw new RuntimeException("Creator cannot be removed");
+        }
+
+        boolean removed = project.getMembers()
+                .removeIf(u -> u.getUid().equals(memberUid));
+
+        if (!removed) {
+            throw new RuntimeException("User is not a member of this project");
+        }
+
+        projectRepository.save(project);
+    }
+
     private ProjectResponse map(Project project) {
         return ProjectResponse.builder()
                 .id(project.getId())

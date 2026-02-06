@@ -34,13 +34,27 @@ public class TaskService {
     }
 
     public TaskResponse createTask(CreateTaskRequest request) {
-        String uid = SecurityContextHolder.getContext().getAuthentication().getName();
+        String uid = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        User currentUser = userRepository.findByUid(uid)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        final Long currentUserId = currentUser.getId();
 
         Project project = projectRepository.findById(request.getProjectId())
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
-        userRepository.findByUid(uid)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        // ✅ CURRENT USER MUST BE PROJECT MEMBER
+        boolean isCurrentUserMember = project.getMembers()
+                .stream()
+                .anyMatch(u -> u.getId().equals(currentUserId));
+
+        if (!isCurrentUserMember) {
+            throw new RuntimeException("You are no longer a member of this project");
+        }
 
         User assignedUser = null;
         if (request.getAssignedUserUid() != null) {
@@ -49,14 +63,14 @@ public class TaskService {
 
             final Long assignedUserId = assignedUser.getId();
 
-            boolean isMember = project.getMembers().stream()
+            boolean isAssignedUserMember = project.getMembers()
+                    .stream()
                     .anyMatch(u -> u.getId().equals(assignedUserId));
 
-            if (!isMember) {
+            if (!isAssignedUserMember) {
                 throw new RuntimeException("Assigned user is not a project member");
             }
         }
-
 
         Task task = Task.builder()
                 .title(request.getTitle())
@@ -71,6 +85,27 @@ public class TaskService {
     }
 
     public List<TaskResponse> getTasksByProject(Long projectId) {
+        String uid = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        User currentUser = userRepository.findByUid(uid)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        final Long currentUserId = currentUser.getId();
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+
+        boolean isMember = project.getMembers()
+                .stream()
+                .anyMatch(u -> u.getId().equals(currentUserId));
+
+        if (!isMember) {
+            throw new RuntimeException("You are no longer a member of this project");
+        }
+
         return taskRepository.findByProjectId(projectId)
                 .stream()
                 .map(this::mapToResponse)
@@ -78,8 +113,28 @@ public class TaskService {
     }
 
     public TaskResponse updateTaskStatus(Long taskId, UpdateTaskStatusRequest request) {
+        String uid = SecurityContextHolder
+                .getContext()
+                .getAuthentication()
+                .getName();
+
+        User currentUser = userRepository.findByUid(uid)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        final Long currentUserId = currentUser.getId();
+
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        Project project = task.getProject();
+
+        boolean isMember = project.getMembers()
+                .stream()
+                .anyMatch(u -> u.getId().equals(currentUserId));
+
+        if (!isMember) {
+            throw new RuntimeException("You are no longer a member of this project");
+        }
 
         task.setStatus(request.getStatus());
         Task updated = taskRepository.save(task);

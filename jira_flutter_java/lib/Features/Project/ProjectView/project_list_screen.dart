@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:jira_flutter_java/Core/theme/theme_provider.dart';
-import 'package:jira_flutter_java/Features/Auth/AuthViewModel/auth_view_model.dart';
+import 'package:jira_flutter_java/Core/data/repository/app_repository.dart';
+import 'package:jira_flutter_java/Features/Dashboard/DashboardViewModel/task_view_model.dart';
 import 'package:provider/provider.dart';
 
+import 'package:jira_flutter_java/Core/theme/theme_provider.dart';
+import 'package:jira_flutter_java/Features/Auth/AuthViewModel/auth_view_model.dart';
 import '../ProjectViewModel/project_view_model.dart';
 import '../../Dashboard/DashboardView/dashboard_screen.dart';
 import 'create_project_dialog.dart';
@@ -18,6 +20,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProjectViewModel>().loadProjects();
     });
@@ -38,6 +41,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
           ),
         ),
       ),
+
       drawer: Drawer(
         child: Column(
           children: [
@@ -59,20 +63,16 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
 
             /// 🌗 Theme toggle
             Consumer<ThemeProvider>(
-              builder: (context, themeProvider, _) {
-                return ListTile(
-                  leading: Icon(
-                    themeProvider.isDarkMode
-                        ? Icons.dark_mode
-                        : Icons.light_mode,
-                  ),
-                  title: const Text('Theme'),
-                  trailing: Switch(
-                    value: themeProvider.isDarkMode,
-                    onChanged: (_) => themeProvider.toggleTheme(),
-                  ),
-                );
-              },
+              builder: (_, themeProvider, __) => ListTile(
+                leading: Icon(
+                  themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                ),
+                title: const Text('Theme'),
+                trailing: Switch(
+                  value: themeProvider.isDarkMode,
+                  onChanged: (_) => themeProvider.toggleTheme(),
+                ),
+              ),
             ),
 
             const Divider(),
@@ -103,6 +103,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
               itemCount: viewModel.projects.length,
               itemBuilder: (context, index) {
                 final project = viewModel.projects[index];
+
                 return ListTile(
                   title: Text(project.name),
                   trailing: Text(
@@ -112,13 +113,18 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => DashboardScreen(projectId: project.id),
+                        builder: (_) => ChangeNotifierProvider(
+                          create: (ctx) =>
+                              TaskViewModel(ctx.read<AppRepository>()),
+                          child: DashboardScreen(projectId: project.id),
+                        ),
                       ),
                     );
                   },
                 );
               },
             ),
+
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           showDialog(
