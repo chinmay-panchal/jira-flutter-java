@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:jira_flutter_java/Core/theme/theme_provider.dart';
+import 'package:jira_flutter_java/Features/Auth/AuthViewModel/auth_view_model.dart';
 import 'package:provider/provider.dart';
 
 import '../ProjectViewModel/project_view_model.dart';
@@ -55,19 +56,40 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                 ),
               ),
             ),
+
+            /// 🌗 Theme toggle
+            Consumer<ThemeProvider>(
+              builder: (context, themeProvider, _) {
+                return ListTile(
+                  leading: Icon(
+                    themeProvider.isDarkMode
+                        ? Icons.dark_mode
+                        : Icons.light_mode,
+                  ),
+                  title: const Text('Theme'),
+                  trailing: Switch(
+                    value: themeProvider.isDarkMode,
+                    onChanged: (_) => themeProvider.toggleTheme(),
+                  ),
+                );
+              },
+            ),
+
+            const Divider(),
+
+            /// 🚪 Logout
             ListTile(
-              leading: Icon(
-                themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
-              ),
-              title: const Text('Theme'),
-              trailing: Switch(
-                value: themeProvider.isDarkMode,
-                onChanged: (_) => themeProvider.toggleTheme(),
-              ),
+              leading: const Icon(Icons.logout),
+              title: const Text('Logout'),
+              onTap: () async {
+                Navigator.pop(context);
+                await context.read<AuthViewModel>().logout();
+              },
             ),
           ],
         ),
       ),
+
       body: viewModel.isLoading
           ? const Center(child: CircularProgressIndicator())
           : viewModel.projects.isEmpty

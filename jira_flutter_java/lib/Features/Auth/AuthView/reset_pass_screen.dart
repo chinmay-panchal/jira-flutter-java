@@ -89,7 +89,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         ),
                       )
                     : const Text(
-                        "Send Reset Email",
+                        "Send Reset Link to Email",
                         style: TextStyle(color: Colors.black),
                       ),
               ),

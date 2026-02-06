@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import '../ProjectModel/project_api.dart';
+import 'package:jira_flutter_java/Core/data/repository/app_repository.dart';
 import '../ProjectModel/project_model.dart';
 import '../ProjectModel/project_form_model.dart';
 import '../ProjectModel/project_request.dart';
 
 class ProjectViewModel extends ChangeNotifier {
-  final ProjectApi _api = ProjectApi();
+  final AppRepository repo;
+
+  ProjectViewModel(this.repo);
 
   bool isLoading = false;
   List<ProjectModel> projects = [];
@@ -14,15 +16,10 @@ class ProjectViewModel extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
 
-    final response = await _api.getMyProjects();
+    final response = await repo.getMyProjects();
+
     projects = response
-        .map(
-          (e) => ProjectModel(
-            id: e.id,
-            name: e.name,
-            deadline: e.deadline,
-          ),
-        )
+        .map((e) => ProjectModel(id: e.id, name: e.name, deadline: e.deadline))
         .toList();
 
     isLoading = false;
@@ -30,7 +27,7 @@ class ProjectViewModel extends ChangeNotifier {
   }
 
   Future<void> createProject(ProjectFormModel form) async {
-    await _api.createProject(
+    await repo.createProject(
       CreateProjectRequest(
         name: form.name,
         description: form.description,
@@ -38,6 +35,7 @@ class ProjectViewModel extends ChangeNotifier {
         deadline: form.lastDate,
       ),
     );
+
     await loadProjects();
   }
 }
