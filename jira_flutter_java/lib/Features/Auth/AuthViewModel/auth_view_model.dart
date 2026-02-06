@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../AuthModel/auth_api.dart';
+import 'package:jira_flutter_java/Core/data/repository/app_repository.dart';
+import 'package:jira_flutter_java/Core/network/global_app.dart';
+import 'package:jira_flutter_java/Features/Auth/AuthView/login_screen.dart';
+import '../../../Core/storage/token_storage.dart';
 import '../AuthModel/login_request.dart';
 import '../AuthModel/signup_request.dart';
-import '../../../Core/storage/token_storage.dart';
 
 class AuthViewModel extends ChangeNotifier {
-  final AuthApi _authApi = AuthApi();
+  final AppRepository repo;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  AuthViewModel(this.repo);
 
   bool isLoading = false;
   String? jwtToken;
@@ -23,119 +27,11 @@ class AuthViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updatePasswordDirectly(String newPassword) async {
-    try {
-      isLoading = true;
-      errorMessage = null;
-      notifyListeners();
-
-      if (userEmail == null) {
-        throw Exception('Email not found');
-      }
-
-      print('🔐 Resetting password for email: $userEmail');
-
-      User? currentUser = FirebaseAuth.instance.currentUser;
-
-      if (currentUser == null) {
-        throw Exception('No user logged in');
-      }
-
-      await FirebaseAuth.instance.signOut();
-
-      final userCredential = await FirebaseAuth.instance
-          .signInWithEmailAndPassword(
-            email: userEmail!,
-            password: 'temp-incorrect-password',
-          );
-
-      print('✅ Password updated successfully');
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
-        try {
-          await FirebaseAuth.instance.sendPasswordResetEmail(email: userEmail!);
-          errorMessage = null;
-          print('✅ Password reset email sent to $userEmail');
-        } catch (resetError) {
-          errorMessage = 'Failed to send reset email';
-        }
-      } else {
-        errorMessage = e.message ?? 'Failed to update password';
-      }
-    } catch (e) {
-      print('❌ Error: $e');
-      errorMessage = 'An error occurred';
-    } finally {
-      isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> signup({
-    required String email,
-    required String password,
-    required String firstName,
-    required String lastName,
-    required String mobile,
-  }) async {
-    User? firebaseUser;
-    try {
-      isLoading = true;
-      errorMessage = null;
-      jwtToken = null;
-      notifyListeners();
-
-      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      firebaseUser = cred.user;
-      final uid = firebaseUser!.uid;
-
-      await _firestore.collection('users').doc(uid).set({
-        'uid': uid,
-        'email': email,
-        'firstName': firstName,
-        'lastName': lastName,
-        'mobile': mobile,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      await _authApi.signup(
-        SignupRequest(
-          uid: uid,
-          email: email,
-          firstName: firstName,
-          lastName: lastName,
-          mobile: mobile,
-        ),
-      );
-
-      print('✅ Signup successful');
-    } catch (e) {
-      errorMessage = e.toString();
-      jwtToken = null;
-
-      if (firebaseUser != null) {
-        print('⚠️ Backend signup failed, rolling back Firebase user...');
-        try {
-          await _firestore.collection('users').doc(firebaseUser.uid).delete();
-          await firebaseUser.delete();
-          await FirebaseAuth.instance.signOut();
-          print('✅ Firebase user deleted successfully');
-        } catch (deleteError) {
-          print('❌ Failed to delete Firebase user: $deleteError');
-        }
-      }
-    } finally {
-      isLoading = false;
-      notifyListeners();
-    }
-  }
+  /* ---------------- LOGIN ---------------- */
 
   Future<void> login({required String email, required String password}) async {
     User? firebaseUser;
+
     try {
       isLoading = true;
       errorMessage = null;
@@ -147,10 +43,10 @@ class AuthViewModel extends ChangeNotifier {
         password: password,
       );
 
-      firebaseUser = cred.user;
-      final uid = firebaseUser!.uid;
+      firebaseUser = cred.user!;
+      final uid = firebaseUser.uid;
 
-      final response = await _authApi.login(
+      final response = await repo.login(
         LoginRequest(
           uid: uid,
           email: email,
@@ -162,44 +58,88 @@ class AuthViewModel extends ChangeNotifier {
 
       jwtToken = response.token;
       await TokenStorage.saveToken(jwtToken!);
-      print('✅ Login successful. JWT: $jwtToken');
     } catch (e) {
       errorMessage = e.toString();
       jwtToken = null;
 
       if (firebaseUser != null) {
-        print('⚠️ Backend login failed, signing out from Firebase...');
-        try {
-          await FirebaseAuth.instance.signOut();
-          print('✅ Firebase user signed out successfully');
-        } catch (signOutError) {
-          print('❌ Failed to sign out Firebase user: $signOutError');
-        }
+        await FirebaseAuth.instance.signOut();
       }
-
-      print('❌ Login failed: $e');
     } finally {
       isLoading = false;
       notifyListeners();
     }
   }
 
+  /* ---------------- SIGNUP ---------------- */
+
+  Future<void> signup({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+    required String mobile,
+  }) async {
+    User? firebaseUser;
+
+    try {
+      isLoading = true;
+      errorMessage = null;
+      notifyListeners();
+
+      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      firebaseUser = cred.user!;
+      final uid = firebaseUser.uid;
+
+      await _firestore.collection('users').doc(uid).set({
+        'uid': uid,
+        'email': email,
+        'firstName': firstName,
+        'lastName': lastName,
+        'mobile': mobile,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      await repo.signup(
+        SignupRequest(
+          uid: uid,
+          email: email,
+          firstName: firstName,
+          lastName: lastName,
+          mobile: mobile,
+        ),
+      );
+    } catch (e) {
+      errorMessage = e.toString();
+
+      if (firebaseUser != null) {
+        await _firestore.collection('users').doc(firebaseUser.uid).delete();
+        await firebaseUser.delete();
+        await FirebaseAuth.instance.signOut();
+      }
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /* ---------------- OTP (EMAIL) ---------------- */
+
   Future<void> sendOtp(String email) async {
     try {
       isLoading = true;
       errorMessage = null;
-      // Clear old state when starting fresh email OTP flow
       userEmail = email;
-      userMobileNumber = null;
       notifyListeners();
 
-      print('📧 Sending OTP to: $email');
-      await _authApi.sendOtp(email);
+      await repo.sendOtp(email);
       otpSessionEmail = email;
-      print('✅ OTP sent successfully');
     } catch (e) {
-      print('❌ Send OTP failed: $e');
-      errorMessage = e.toString().replaceAll('Exception: ', '');
+      errorMessage = e.toString();
     } finally {
       isLoading = false;
       notifyListeners();
@@ -212,15 +152,10 @@ class AuthViewModel extends ChangeNotifier {
       errorMessage = null;
       notifyListeners();
 
-      print('🔍 Verifying OTP: $otp for email: $otpSessionEmail');
-
-      await _authApi.verifyOtp(email: otpSessionEmail!, otp: otp);
-
-      print('✅ OTP verified successfully');
+      await repo.verifyOtp(otpSessionEmail!, otp);
       return true;
     } catch (e) {
-      print('❌ OTP verification failed: $e');
-      errorMessage = e.toString().replaceAll('Exception: ', '');
+      errorMessage = e.toString();
       return false;
     } finally {
       isLoading = false;
@@ -228,90 +163,63 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> resetPassword() async {
+  /* ---------------- PASSWORD RESET ---------------- */
+
+  Future<void> updatePasswordDirectly(String newPassword) async {
     try {
       isLoading = true;
       errorMessage = null;
       notifyListeners();
 
-      if (otpSessionEmail == null || otpSessionEmail!.isEmpty) {
-        throw Exception('Email not found. Please try again.');
+      if (userEmail == null) {
+        throw Exception('Email not found');
       }
 
-      print('📧 Sending password reset email to: $otpSessionEmail');
-
-      await FirebaseAuth.instance.sendPasswordResetEmail(
-        email: otpSessionEmail!,
-      );
-
-      print('✅ Password reset email sent successfully');
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: userEmail!);
     } on FirebaseAuthException catch (e) {
-      print('❌ Firebase Auth Error: ${e.code}');
-      print('   Message: ${e.message}');
-
-      switch (e.code) {
-        case 'user-not-found':
-          errorMessage = 'No user found with this email.';
-          break;
-        case 'invalid-email':
-          errorMessage = 'Invalid email address.';
-          break;
-        case 'too-many-requests':
-          errorMessage = 'Too many requests. Please try again later.';
-          break;
-        default:
-          errorMessage = e.message ?? 'Failed to send reset email';
-      }
-    } catch (e) {
-      print('❌ General Error: $e');
-      errorMessage = 'An error occurred. Please try again.';
+      errorMessage = e.message ?? 'Failed to reset password';
+    } catch (_) {
+      errorMessage = 'An error occurred';
     } finally {
       isLoading = false;
       notifyListeners();
     }
   }
 
+  Future<void> resetPassword() async {
+    if (otpSessionEmail == null) return;
+    await FirebaseAuth.instance.sendPasswordResetEmail(email: otpSessionEmail!);
+  }
+
+  /* ---------------- PHONE OTP ---------------- */
+
   Future<bool> checkUserAndGetMobile(String email) async {
     try {
       isLoading = true;
       errorMessage = null;
-      // Clear previous email/mobile when starting fresh mobile OTP flow
-      userEmail = null;
-      userMobileNumber = null;
       notifyListeners();
 
-      print('🔍 Checking if user exists: $email');
-
-      final userDoc = await _firestore
+      final snap = await _firestore
           .collection('users')
           .where('email', isEqualTo: email)
           .limit(1)
           .get();
 
-      if (userDoc.docs.isEmpty) {
-        errorMessage = 'No account found with this email';
+      if (snap.docs.isEmpty) {
+        errorMessage = 'No account found';
         return false;
       }
 
-      print('✅ User exists in Firestore');
-
-      final userData = userDoc.docs.first.data();
-      userMobileNumber = userData['mobile'];
-      userEmail = email; // Set fresh email
-
-      if (userMobileNumber == null || userMobileNumber!.isEmpty) {
-        errorMessage = 'No mobile number found for this account';
-        return false;
-      }
+      final data = snap.docs.first.data();
+      userMobileNumber = data['mobile'];
+      userEmail = email;
 
       if (!userMobileNumber!.startsWith('+')) {
         userMobileNumber = '+91$userMobileNumber';
       }
 
-      print('✅ Mobile number found: $userMobileNumber');
       return true;
     } catch (e) {
-      print('❌ Error: $e');
       errorMessage = e.toString();
       return false;
     } finally {
@@ -337,52 +245,25 @@ class AuthViewModel extends ChangeNotifier {
       errorMessage = null;
       notifyListeners();
 
-      print('📱 Sending OTP to: $userMobileNumber');
-
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: userMobileNumber!,
         timeout: const Duration(seconds: 120),
-
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          print('✅ Auto-verification completed');
-        },
-
-        verificationFailed: (FirebaseAuthException e) {
-          print('❌ Verification failed: ${e.code}');
+        verificationCompleted: (_) {},
+        verificationFailed: (e) {
+          errorMessage = e.message;
           isLoading = false;
-
-          switch (e.code) {
-            case 'invalid-phone-number':
-              errorMessage = 'Invalid phone number format';
-              break;
-            case 'too-many-requests':
-              errorMessage = 'Too many requests. Try again later';
-              break;
-            case 'internal-error':
-              errorMessage = 'Internal error. Please try again';
-              break;
-            default:
-              errorMessage = e.message ?? 'Verification failed';
-          }
           notifyListeners();
           onError?.call();
         },
-
-        codeSent: (String verificationId, int? resendToken) {
-          print('✅ OTP sent successfully');
-          _verificationId = verificationId;
+        codeSent: (id, _) {
+          _verificationId = id;
           isLoading = false;
           notifyListeners();
           onCodeSent();
         },
-
-        codeAutoRetrievalTimeout: (String verificationId) {
-          _verificationId = verificationId;
-          print('⏱️ Auto-retrieval timeout');
-        },
+        codeAutoRetrievalTimeout: (id) => _verificationId = id,
       );
     } catch (e) {
-      print('❌ Send phone OTP error: $e');
       errorMessage = e.toString();
       isLoading = false;
       notifyListeners();
@@ -392,85 +273,19 @@ class AuthViewModel extends ChangeNotifier {
 
   Future<bool> verifyPhoneOtp(String smsCode) async {
     try {
-      isLoading = true;
-      errorMessage = null;
-      notifyListeners();
-
-      if (_verificationId == null) {
-        throw Exception('Verification ID not found. Please try again.');
-      }
-
-      print('🔍 Verifying phone OTP: $smsCode');
-
-      PhoneAuthCredential credential = PhoneAuthProvider.credential(
+      final credential = PhoneAuthProvider.credential(
         verificationId: _verificationId!,
         smsCode: smsCode,
       );
-
       await FirebaseAuth.instance.signInWithCredential(credential);
-
-      print('✅ Phone OTP verified successfully');
       return true;
-    } on FirebaseAuthException catch (e) {
-      print('❌ Phone OTP verification failed: ${e.code}');
-
-      switch (e.code) {
-        case 'invalid-verification-code':
-          errorMessage = 'Invalid OTP. Please try again.';
-          break;
-        case 'session-expired':
-          errorMessage = 'OTP expired. Please request a new one.';
-          break;
-        default:
-          errorMessage = e.message ?? 'Verification failed';
-      }
-      return false;
     } catch (e) {
-      print('❌ General error: $e');
-      errorMessage = 'An error occurred. Please try again.';
+      errorMessage = e.toString();
       return false;
-    } finally {
-      isLoading = false;
-      notifyListeners();
     }
   }
 
-  Future<void> updatePasswordAfterPhoneVerification(String newPassword) async {
-    try {
-      isLoading = true;
-      errorMessage = null;
-      notifyListeners();
-
-      if (userEmail == null) {
-        throw Exception('User email not found');
-      }
-
-      print('🔐 Sending password reset email to: $userEmail');
-
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: userEmail!);
-
-      print('✅ Password reset email sent');
-    } on FirebaseAuthException catch (e) {
-      print('❌ Password reset failed: ${e.code}');
-
-      switch (e.code) {
-        case 'user-not-found':
-          errorMessage = 'User not found';
-          break;
-        case 'invalid-email':
-          errorMessage = 'Invalid email';
-          break;
-        default:
-          errorMessage = e.message ?? 'Failed to send reset email';
-      }
-    } catch (e) {
-      print('❌ Error: $e');
-      errorMessage = 'An error occurred';
-    } finally {
-      isLoading = false;
-      notifyListeners();
-    }
-  }
+  /* ---------------- TOKEN ---------------- */
 
   Future<void> loadToken() async {
     jwtToken = await TokenStorage.getToken();
@@ -480,7 +295,16 @@ class AuthViewModel extends ChangeNotifier {
   Future<void> logout() async {
     await FirebaseAuth.instance.signOut();
     await TokenStorage.clearToken();
+
     jwtToken = null;
     notifyListeners();
+
+    // 🔥 FORCE navigation back to Login
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      GlobalApp.navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (_) => false,
+      );
+    });
   }
 }

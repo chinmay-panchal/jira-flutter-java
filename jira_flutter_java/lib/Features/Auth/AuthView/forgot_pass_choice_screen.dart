@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../AuthViewModel/auth_view_model.dart';
 import 'otp_screen.dart';
-import 'mobile_otp_screen.dart';
 
 class ForgotPassChoiceScreen extends StatefulWidget {
   const ForgotPassChoiceScreen({super.key});
@@ -189,7 +188,7 @@ class _ForgotPassChoiceScreenState extends State<ForgotPassChoiceScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => MobileOtpScreen(
+                                builder: (_) => OtpScreen(
                                   phoneNumber: authVm.userMobileNumber ?? '',
                                 ),
                               ),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import '../UserModel/user_api.dart';
+import 'package:jira_flutter_java/Core/data/repository/app_repository.dart';
 import '../UserModel/user_model.dart';
 
 class UserViewModel extends ChangeNotifier {
-  final UserApi _api = UserApi();
+  final AppRepository repo;
+
+  UserViewModel(this.repo);
 
   List<UserModel> _allUsers = [];
   List<UserModel> users = [];
@@ -13,7 +15,7 @@ class UserViewModel extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
 
-    _allUsers = await _api.getAllUsers();
+    _allUsers = await repo.getAllUsers();
     users = _allUsers;
 
     isLoading = false;
@@ -24,7 +26,7 @@ class UserViewModel extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
 
-    _allUsers = await _api.getProjectMembers(projectId);
+    _allUsers = await repo.getProjectMembers(projectId);
     users = _allUsers;
 
     isLoading = false;

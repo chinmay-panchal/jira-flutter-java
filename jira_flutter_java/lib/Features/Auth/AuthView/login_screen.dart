@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthView/forgot_pass_choice_screen.dart';
 import 'package:jira_flutter_java/Features/Project/ProjectView/project_list_screen.dart';
 import 'package:provider/provider.dart';
-import 'package:jira_flutter_java/Features/Auth/AuthView/forgot_pass_screen.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthView/signup_screen.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthViewModel/auth_view_model.dart';
 
