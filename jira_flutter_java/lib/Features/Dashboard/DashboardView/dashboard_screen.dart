@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:jira_flutter_java/Core/theme/theme_provider.dart';
 import 'package:jira_flutter_java/Core/data/repository/app_repository.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthViewModel/auth_view_model.dart';
+import 'package:jira_flutter_java/Features/Dashboard/DashboardView/project_details_dialog.dart';
+import 'package:jira_flutter_java/Features/User/UserViewModel/user_view_model.dart';
 import 'package:provider/provider.dart';
 
 import '../DashboardViewModel/task_view_model.dart';
@@ -164,6 +166,21 @@ class _DashboardBodyState extends State<_DashboardBody> {
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Project details',
+            icon: const Icon(Icons.work_outline),
+            onPressed: () async {
+              await context.read<UserViewModel>().loadUsers();
+
+              showDialog(
+                context: context,
+                builder: (_) =>
+                    ProjectDetailsDialog(projectId: widget.projectId),
+              );
+            },
+          ),
+        ],
       ),
 
       drawer: Drawer(

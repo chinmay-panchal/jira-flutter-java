@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:jira_flutter_java/Core/data/repository/app_repository.dart';
 import '../ProjectModel/project_model.dart';
@@ -12,6 +13,15 @@ class ProjectViewModel extends ChangeNotifier {
   bool isLoading = false;
   List<ProjectModel> projects = [];
 
+
+  ProjectModel? byId(int id) {
+    try {
+      return projects.firstWhere((p) => p.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> loadProjects() async {
     isLoading = true;
     notifyListeners();
@@ -19,7 +29,16 @@ class ProjectViewModel extends ChangeNotifier {
     final response = await repo.getMyProjects();
 
     projects = response
-        .map((e) => ProjectModel(id: e.id, name: e.name, deadline: e.deadline))
+        .map(
+          (e) => ProjectModel(
+            id: e.id!.toInt(),
+            name: e.name,
+            description: e.description ?? '',
+            deadline: e.deadline!,
+            members: e.memberUids ?? [],
+            creatorUid: e.creatorUid!,
+          ),
+        )
         .toList();
 
     isLoading = false;
