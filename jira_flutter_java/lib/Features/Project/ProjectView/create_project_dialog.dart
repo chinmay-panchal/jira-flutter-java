@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:jira_flutter_java/Features/Project/ProjectView/memer_select_dialog.dart';
 import 'package:provider/provider.dart';
 
+import 'memer_select_dialog.dart';
 import '../../User/UserViewModel/user_view_model.dart';
 import '../ProjectModel/project_form_model.dart';
 import '../ProjectViewModel/project_view_model.dart';
@@ -62,7 +62,6 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
               ),
             ),
             const SizedBox(height: 12),
-
             InkWell(
               onTap: () async {
                 await context.read<UserViewModel>().loadUsers();
@@ -71,7 +70,7 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
                   context: context,
                   builder: (_) => MemberSelectDialog(
                     initialSelected: selectedUids,
-                    singleSelect: false,
+                    hideCurrentUser: true,
                   ),
                 );
 
@@ -106,7 +105,6 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
                 ),
               ),
             ),
-
             const SizedBox(height: 12),
             InkWell(
               onTap: () async {

@@ -33,6 +33,14 @@ class UserViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  UserModel? byUid(String uid) {
+    try {
+      return _allUsers.firstWhere((u) => u.uid == uid);
+    } catch (_) {
+      return null;
+    }
+  }
+
   void search(String q) {
     final query = q.toLowerCase().trim();
 

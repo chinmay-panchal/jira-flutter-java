@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../Auth/AuthViewModel/auth_view_model.dart';
 import '../../User/UserModel/user_model.dart';
 import '../../User/UserViewModel/user_view_model.dart';
 
 class MemberSelectDialog extends StatefulWidget {
   final Set<String> initialSelected;
   final bool singleSelect;
+  final bool hideCurrentUser;
 
   const MemberSelectDialog({
     super.key,
     required this.initialSelected,
     this.singleSelect = false,
+    this.hideCurrentUser = false,
   });
 
   @override
@@ -31,6 +34,11 @@ class _MemberSelectDialogState extends State<MemberSelectDialog> {
   @override
   Widget build(BuildContext context) {
     final userVm = context.watch<UserViewModel>();
+    final authVm = context.read<AuthViewModel>();
+
+    final List<UserModel> users = widget.hideCurrentUser && authVm.uid != null
+        ? userVm.users.where((u) => u.uid != authVm.uid).toList()
+        : userVm.users;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -57,14 +65,17 @@ class _MemberSelectDialogState extends State<MemberSelectDialog> {
               child: userVm.isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : ListView.builder(
-                      itemCount: userVm.users.length,
+                      itemCount: users.length,
                       itemBuilder: (_, i) {
-                        final UserModel u = userVm.users[i];
+                        final UserModel u = users[i];
                         final selected = selectedUids.contains(u.uid);
+                        final isYou = u.uid == authVm.uid;
 
                         return ListTile(
-                          title: Text('${u.firstName} ${u.lastName}'),
-                          subtitle: Text(u.email),
+                          title: Text(
+                            isYou ? 'You' : '${u.firstName} ${u.lastName}',
+                          ),
+                          subtitle: Text(isYou ? u.email : u.email),
                           trailing: Checkbox(
                             value: selected,
                             onChanged: (v) {

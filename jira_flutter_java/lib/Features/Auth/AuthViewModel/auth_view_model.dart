@@ -22,12 +22,12 @@ class AuthViewModel extends ChangeNotifier {
   String? userMobileNumber;
   String? userEmail;
 
+  String? get uid => FirebaseAuth.instance.currentUser?.uid;
+
   void clearError() {
     errorMessage = null;
     notifyListeners();
   }
-
-  /* ---------------- LOGIN ---------------- */
 
   Future<void> login({required String email, required String password}) async {
     User? firebaseUser;
@@ -70,8 +70,6 @@ class AuthViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-  /* ---------------- SIGNUP ---------------- */
 
   Future<void> signup({
     required String email,
@@ -127,8 +125,6 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
-  /* ---------------- OTP (EMAIL) ---------------- */
-
   Future<void> sendOtp(String email) async {
     try {
       isLoading = true;
@@ -163,8 +159,6 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
-  /* ---------------- PASSWORD RESET ---------------- */
-
   Future<void> updatePasswordDirectly(String newPassword) async {
     try {
       isLoading = true;
@@ -190,8 +184,6 @@ class AuthViewModel extends ChangeNotifier {
     if (otpSessionEmail == null) return;
     await FirebaseAuth.instance.sendPasswordResetEmail(email: otpSessionEmail!);
   }
-
-  /* ---------------- PHONE OTP ---------------- */
 
   Future<bool> checkUserAndGetMobile(String email) async {
     try {
@@ -285,8 +277,6 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
-  /* ---------------- TOKEN ---------------- */
-
   Future<void> loadToken() async {
     jwtToken = await TokenStorage.getToken();
     notifyListeners();
@@ -299,7 +289,6 @@ class AuthViewModel extends ChangeNotifier {
     jwtToken = null;
     notifyListeners();
 
-    // 🔥 FORCE navigation back to Login
     WidgetsBinding.instance.addPostFrameCallback((_) {
       GlobalApp.navigatorKey.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
