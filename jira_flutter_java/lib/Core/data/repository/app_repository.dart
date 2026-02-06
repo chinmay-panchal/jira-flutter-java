@@ -40,6 +40,17 @@ class AppRepository {
     return _dataSource.createProject(request);
   }
 
+  // ✅ REMOVE MEMBER (creator only)
+  Future<void> removeProjectMember({
+    required int projectId,
+    required String memberUid,
+  }) {
+    return _dataSource.removeProjectMember(
+      projectId: projectId,
+      memberUid: memberUid,
+    );
+  }
+
   /* ---------------- TASK ---------------- */
 
   Future<List<TaskModel>> getTasksByProject(int projectId) {

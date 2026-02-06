@@ -6,8 +6,13 @@ import '../DashboardViewModel/task_view_model.dart';
 
 class CreateTodoDialog extends StatefulWidget {
   final int projectId;
+  final TaskViewModel taskVm;
 
-  const CreateTodoDialog({super.key, required this.projectId});
+  const CreateTodoDialog({
+    super.key,
+    required this.projectId,
+    required this.taskVm,
+  });
 
   @override
   State<CreateTodoDialog> createState() => _CreateTodoDialogState();
@@ -23,10 +28,56 @@ class _CreateTodoDialogState extends State<CreateTodoDialog> {
   OutlineInputBorder _border() =>
       OutlineInputBorder(borderRadius: BorderRadius.circular(14));
 
+  Color get _dialogBorderColor =>
+      Theme.of(context).brightness == Brightness.dark
+      ? Colors.white
+      : Colors.black;
+
+  void _showAccessRevokedDialog(BuildContext dialogContext) {
+    showDialog(
+      context: dialogContext,
+      barrierDismissible: false,
+      builder: (alertContext) => WillPopScope(
+        onWillPop: () async {
+          // Handle back button press - pop 3 times to go back to project list
+          int popCount = 0;
+          Navigator.of(alertContext).popUntil((route) {
+            popCount++;
+            // Pop 3 routes: alert dialog, create todo dialog, dashboard screen
+            return popCount >= 3 || route.isFirst;
+          });
+          return false;
+        },
+        child: AlertDialog(
+          title: const Text('Access removed'),
+          content: const Text('You are no longer a member of this project.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                // Use popUntil to safely pop multiple routes
+                // This will pop: alert dialog, create todo dialog, and dashboard screen
+                int popCount = 0;
+                Navigator.of(alertContext).popUntil((route) {
+                  popCount++;
+                  // Pop 3 routes: alert dialog, create todo dialog, dashboard screen
+                  return popCount >= 3 || route.isFirst;
+                });
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: _dialogBorderColor, width: 1),
+      ),
       title: const Text('Create Todo'),
       content: SizedBox(
         width: 380,
@@ -62,21 +113,32 @@ class _CreateTodoDialogState extends State<CreateTodoDialog> {
             ),
             const SizedBox(height: 12),
 
+            /// Assign member
             InkWell(
               onTap: () async {
-                await context.read<UserViewModel>().loadProjectMembers(
-                  widget.projectId,
-                );
+                final currentContext = context;
+                try {
+                  await currentContext.read<UserViewModel>().loadProjectMembers(
+                    widget.projectId,
+                  );
+                } catch (_) {
+                  if (!mounted) return;
+                  Navigator.pop(currentContext);
+                  _showAccessRevokedDialog(currentContext);
+                  return;
+                }
+
+                if (!mounted) return;
 
                 final result = await showDialog<Set<String>>(
-                  context: context,
+                  context: currentContext,
                   builder: (_) => MemberSelectDialog(
                     initialSelected: selectedUids,
                     singleSelect: true,
                   ),
                 );
 
-                if (result != null) {
+                if (result != null && mounted) {
                   setState(() {
                     selectedUids
                       ..clear()
@@ -120,15 +182,23 @@ class _CreateTodoDialogState extends State<CreateTodoDialog> {
           onPressed: titleCtrl.text.trim().isEmpty
               ? null
               : () async {
-                  await context.read<TaskViewModel>().createTask(
-                    projectId: widget.projectId,
-                    title: titleCtrl.text.trim(),
-                    description: descCtrl.text.trim(),
-                    assignedUserUid: selectedUids.isNotEmpty
-                        ? selectedUids.first
-                        : null,
-                  );
-                  Navigator.pop(context);
+                  final currentContext = context;
+                  try {
+                    await widget.taskVm.createTask(
+                      projectId: widget.projectId,
+                      title: titleCtrl.text.trim(),
+                      description: descCtrl.text.trim(),
+                      assignedUserUid: selectedUids.isNotEmpty
+                          ? selectedUids.first
+                          : null,
+                    );
+
+                    if (mounted) Navigator.pop(currentContext);
+                  } catch (_) {
+                    if (!mounted) return;
+                    Navigator.pop(currentContext);
+                    _showAccessRevokedDialog(currentContext);
+                  }
                 },
           style: ElevatedButton.styleFrom(
             shape: RoundedRectangleBorder(

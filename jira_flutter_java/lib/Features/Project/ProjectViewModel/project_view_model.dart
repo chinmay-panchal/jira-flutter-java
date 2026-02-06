@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:jira_flutter_java/Core/data/repository/app_repository.dart';
 import '../ProjectModel/project_model.dart';
@@ -12,7 +11,6 @@ class ProjectViewModel extends ChangeNotifier {
 
   bool isLoading = false;
   List<ProjectModel> projects = [];
-
 
   ProjectModel? byId(int id) {
     try {
@@ -55,6 +53,17 @@ class ProjectViewModel extends ChangeNotifier {
       ),
     );
 
+    await loadProjects();
+  }
+
+  // ✅ REMOVE MEMBER FROM PROJECT (creator only)
+  Future<void> removeMember({
+    required int projectId,
+    required String memberUid,
+  }) async {
+    await repo.removeProjectMember(projectId: projectId, memberUid: memberUid);
+
+    // refresh local state
     await loadProjects();
   }
 }

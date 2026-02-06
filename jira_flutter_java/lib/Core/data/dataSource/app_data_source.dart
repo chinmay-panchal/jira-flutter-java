@@ -40,6 +40,14 @@ class AppDataSource extends DataSource {
   void _handleError(http.Response response) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final body = jsonDecode(response.body);
+
+      // 🔥 PROJECT ACCESS REVOKED
+      if (response.statusCode == 403 &&
+          body is Map &&
+          body['code'] == 'PROJECT_ACCESS_REVOKED') {
+        throw Exception('PROJECT_ACCESS_REVOKED');
+      }
+
       throw Exception(body['message'] ?? 'Request failed');
     }
   }
@@ -111,6 +119,20 @@ class AppDataSource extends DataSource {
       Uri.parse(baseUrl + ApiConstants.projects),
       headers: await authHeader,
       body: jsonEncode(request.toJson()),
+    );
+    await _handle401(response);
+    _handleError(response);
+  }
+
+  // ✅ REMOVE MEMBER (creator only)
+  @override
+  Future<void> removeProjectMember({
+    required int projectId,
+    required String memberUid,
+  }) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/projects/$projectId/members/$memberUid'),
+      headers: await authHeader,
     );
     await _handle401(response);
     _handleError(response);

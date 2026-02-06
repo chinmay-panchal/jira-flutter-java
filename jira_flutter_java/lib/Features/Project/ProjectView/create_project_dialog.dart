@@ -28,7 +28,15 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white
+              : Colors.black,
+          width: 1,
+        ),
+      ),
       title: const Text('Create Project'),
       content: SizedBox(
         width: 380,
