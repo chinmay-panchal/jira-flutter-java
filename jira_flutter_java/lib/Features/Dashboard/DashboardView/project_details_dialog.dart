@@ -16,6 +16,7 @@ class ProjectDetailsDialog extends StatelessWidget {
     final projectVm = context.watch<ProjectViewModel>();
     final userVm = context.watch<UserViewModel>();
     final authVm = context.watch<AuthViewModel>();
+    final colorScheme = Theme.of(context).colorScheme;
 
     final ProjectModel? project = projectVm.byId(projectId);
 
@@ -38,7 +39,7 @@ class ProjectDetailsDialog extends StatelessWidget {
     return AlertDialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+        side: BorderSide(color: colorScheme.outline, width: 1),
       ),
       title: const Text('Project Details'),
       content: SizedBox(
@@ -58,8 +59,8 @@ class ProjectDetailsDialog extends StatelessWidget {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.05),
-                  border: Border.all(color: Colors.grey.shade300),
+                  color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                  border: Border.all(color: colorScheme.outline),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
@@ -103,8 +104,8 @@ class ProjectDetailsDialog extends StatelessWidget {
                     decoration: BoxDecoration(
                       border: Border.all(
                         color: memberIsCreator
-                            ? Colors.blue
-                            : Colors.grey.shade300,
+                            ? colorScheme.primary
+                            : colorScheme.outline,
                       ),
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -113,8 +114,8 @@ class ProjectDetailsDialog extends StatelessWidget {
                         CircleAvatar(
                           radius: 16,
                           backgroundColor: memberIsCreator
-                              ? Colors.blue
-                              : Colors.grey.shade400,
+                              ? colorScheme.primary
+                              : colorScheme.outline,
                           child: Icon(
                             memberIsCreator ? Icons.star : Icons.person,
                             size: 16,
@@ -133,7 +134,7 @@ class ProjectDetailsDialog extends StatelessWidget {
                                   'Project Creator',
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
-                                        color: Colors.blue,
+                                        color: colorScheme.primary,
                                         fontWeight: FontWeight.w600,
                                       ),
                                 ),
@@ -141,11 +142,10 @@ class ProjectDetailsDialog extends StatelessWidget {
                           ),
                         ),
 
-                        // ❌ REMOVE ICON — creator only, not for creator row
                         if (isCreator && !memberIsCreator)
                           IconButton(
                             icon: const Icon(Icons.remove_circle_outline),
-                            color: Colors.red,
+                            color: colorScheme.error,
                             tooltip: 'Remove member',
                             onPressed: () async {
                               await projectVm.removeMember(
@@ -153,7 +153,6 @@ class ProjectDetailsDialog extends StatelessWidget {
                                 memberUid: uid,
                               );
 
-                              // reload members list visually
                               await projectVm.loadProjects();
                             },
                           ),

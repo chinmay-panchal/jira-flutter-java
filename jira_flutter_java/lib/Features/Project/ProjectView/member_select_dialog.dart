@@ -32,16 +32,26 @@ class _MemberSelectDialogState extends State<MemberSelectDialog> {
   }
 
   @override
+  void dispose() {
+    searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final userVm = context.watch<UserViewModel>();
     final authVm = context.read<AuthViewModel>();
+    final colorScheme = Theme.of(context).colorScheme;
 
     final List<UserModel> users = widget.hideCurrentUser && authVm.uid != null
         ? userVm.users.where((u) => u.uid != authVm.uid).toList()
         : userVm.users;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outline),
+      ),
       insetPadding: const EdgeInsets.all(20),
       child: SizedBox(
         height: 420,
@@ -52,11 +62,9 @@ class _MemberSelectDialogState extends State<MemberSelectDialog> {
               padding: const EdgeInsets.all(16),
               child: TextField(
                 controller: searchCtrl,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: 'Search members',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  prefixIcon: Icon(Icons.search),
                 ),
                 onChanged: userVm.search,
               ),
@@ -64,6 +72,15 @@ class _MemberSelectDialogState extends State<MemberSelectDialog> {
             Expanded(
               child: userVm.isLoading
                   ? const Center(child: CircularProgressIndicator())
+                  : users.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No members found',
+                        style: TextStyle(
+                          color: colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                    )
                   : ListView.builder(
                       itemCount: users.length,
                       itemBuilder: (_, i) {
@@ -74,8 +91,13 @@ class _MemberSelectDialogState extends State<MemberSelectDialog> {
                         return ListTile(
                           title: Text(
                             isYou ? 'You' : '${u.firstName} ${u.lastName}',
+                            style: TextStyle(
+                              fontWeight: isYou
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
                           ),
-                          subtitle: Text(isYou ? u.email : u.email),
+                          subtitle: Text(u.email),
                           trailing: Checkbox(
                             value: selected,
                             onChanged: (v) {

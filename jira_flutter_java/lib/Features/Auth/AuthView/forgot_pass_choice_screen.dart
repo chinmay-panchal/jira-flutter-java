@@ -26,6 +26,7 @@ class _ForgotPassChoiceScreenState extends State<ForgotPassChoiceScreen> {
   @override
   Widget build(BuildContext context) {
     final authVm = context.watch<AuthViewModel>();
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: SingleChildScrollView(
@@ -38,20 +39,28 @@ class _ForgotPassChoiceScreenState extends State<ForgotPassChoiceScreen> {
               style: GoogleFonts.calligraffitti(
                 fontSize: 48,
                 fontWeight: FontWeight.w500,
+                color: colorScheme.primary,
               ),
             ),
             const SizedBox(height: 16),
             const Image(image: AssetImage("assets/images/forgot-pass.jpg")),
             const SizedBox(height: 32),
-            const Text(
+            Text(
               "Reset Password",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               "Enter your email to receive OTP",
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 16,
+                color: colorScheme.onSurface.withOpacity(0.6),
+              ),
             ),
             const SizedBox(height: 32),
 
@@ -60,12 +69,9 @@ class _ForgotPassChoiceScreenState extends State<ForgotPassChoiceScreen> {
               child: TextFormField(
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: "Email",
-                  prefixIcon: const Icon(Icons.email),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                  prefixIcon: Icon(Icons.email),
                 ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) {
@@ -83,166 +89,162 @@ class _ForgotPassChoiceScreenState extends State<ForgotPassChoiceScreen> {
 
             const SizedBox(height: 24),
 
-            InkWell(
-              onTap: isEmailLoading || isMobileLoading
-                  ? null
-                  : () async {
-                      if (!_formKey.currentState!.validate()) return;
+            SizedBox(
+              height: 56,
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: isEmailLoading || isMobileLoading
+                    ? null
+                    : () async {
+                        if (!_formKey.currentState!.validate()) return;
 
-                      setState(() => isEmailLoading = true);
+                        setState(() => isEmailLoading = true);
 
-                      final email = emailController.text.trim();
+                        final email = emailController.text.trim();
 
-                      await authVm.sendOtp(email);
+                        await authVm.sendOtp(email);
 
-                      setState(() => isEmailLoading = false);
+                        setState(() => isEmailLoading = false);
 
-                      if (!mounted) return;
+                        if (!mounted) return;
 
-                      if (authVm.errorMessage != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(authVm.errorMessage!),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      } else {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const OtpScreen()),
-                        );
-                      }
-                    },
-              child: Container(
-                height: 56,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.blue, width: 2),
-                  borderRadius: BorderRadius.circular(16),
-                  color: Colors.blue.shade50,
+                        if (authVm.errorMessage != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(authVm.errorMessage!),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const OtpScreen(),
+                            ),
+                          );
+                        }
+                      },
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: colorScheme.primary, width: 2),
+                  backgroundColor: colorScheme.primary.withOpacity(0.1),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.email, color: Colors.blue),
-                    const SizedBox(width: 12),
-                    isEmailLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.blue,
-                            ),
-                          )
-                        : const Text(
-                            "Send OTP via Email",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.blue,
-                            ),
-                          ),
-                  ],
+                icon: isEmailLoading
+                    ? SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colorScheme.primary,
+                        ),
+                      )
+                    : Icon(Icons.email, color: colorScheme.primary),
+                label: Text(
+                  "Send OTP via Email",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.primary,
+                  ),
                 ),
               ),
             ),
 
             const SizedBox(height: 16),
 
-            InkWell(
-              onTap: isEmailLoading || isMobileLoading
-                  ? null
-                  : () async {
-                      if (!_formKey.currentState!.validate()) return;
+            SizedBox(
+              height: 56,
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: isEmailLoading || isMobileLoading
+                    ? null
+                    : () async {
+                        if (!_formKey.currentState!.validate()) return;
 
-                      setState(() => isMobileLoading = true);
+                        setState(() => isMobileLoading = true);
 
-                      final email = emailController.text.trim();
+                        final email = emailController.text.trim();
 
-                      final success = await authVm.checkUserAndGetMobile(email);
-
-                      if (!mounted) {
-                        setState(() => isMobileLoading = false);
-                        return;
-                      }
-
-                      if (!success) {
-                        setState(() => isMobileLoading = false);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              authVm.errorMessage ?? 'User not found',
-                            ),
-                            backgroundColor: Colors.red,
-                          ),
+                        final success = await authVm.checkUserAndGetMobile(
+                          email,
                         );
-                        return;
-                      }
 
-                      await authVm.sendPhoneOtpForReset(
-                        context: context,
-                        onCodeSent: () {
-                          if (mounted) {
-                            setState(() => isMobileLoading = false);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => OtpScreen(
-                                  phoneNumber: authVm.userMobileNumber ?? '',
-                                ),
+                        if (!mounted) {
+                          setState(() => isMobileLoading = false);
+                          return;
+                        }
+
+                        if (!success) {
+                          setState(() => isMobileLoading = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                authVm.errorMessage ?? 'User not found',
                               ),
-                            );
-                          }
-                        },
-                        onError: () {
-                          if (mounted) {
-                            setState(() => isMobileLoading = false);
-                          }
-                        },
-                      );
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
 
-                      if (authVm.errorMessage != null && mounted) {
-                        setState(() => isMobileLoading = false);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(authVm.errorMessage!),
-                            backgroundColor: Colors.red,
-                          ),
+                        await authVm.sendPhoneOtpForReset(
+                          context: context,
+                          onCodeSent: () {
+                            if (mounted) {
+                              setState(() => isMobileLoading = false);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => OtpScreen(
+                                    phoneNumber: authVm.userMobileNumber ?? '',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          onError: () {
+                            if (mounted) {
+                              setState(() => isMobileLoading = false);
+                            }
+                          },
                         );
-                      }
-                    },
-              child: Container(
-                height: 56,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.green, width: 2),
-                  borderRadius: BorderRadius.circular(16),
-                  color: Colors.green.shade50,
+
+                        if (authVm.errorMessage != null && mounted) {
+                          setState(() => isMobileLoading = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(authVm.errorMessage!),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: colorScheme.secondary, width: 2),
+                  backgroundColor: colorScheme.secondary.withOpacity(0.1),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.phone_android, color: Colors.green),
-                    const SizedBox(width: 12),
-                    isMobileLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.green,
-                            ),
-                          )
-                        : const Text(
-                            "Send OTP via Mobile",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.green,
-                            ),
-                          ),
-                  ],
+                icon: isMobileLoading
+                    ? SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colorScheme.secondary,
+                        ),
+                      )
+                    : Icon(Icons.phone_android, color: colorScheme.secondary),
+                label: Text(
+                  "Send OTP via Mobile",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.secondary,
+                  ),
                 ),
               ),
             ),

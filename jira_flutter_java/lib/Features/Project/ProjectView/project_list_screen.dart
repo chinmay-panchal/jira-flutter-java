@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jira_flutter_java/Core/data/repository/app_repository.dart';
 import 'package:jira_flutter_java/Features/Dashboard/DashboardViewModel/task_view_model.dart';
+import 'package:jira_flutter_java/Features/theme/theme_settings_screen.dart';
 import 'package:provider/provider.dart';
 
 import 'package:jira_flutter_java/Core/theme/theme_provider.dart';
@@ -29,7 +30,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<ProjectViewModel>();
-    final themeProvider = context.watch<ThemeProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -45,11 +46,13 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
       drawer: Drawer(
         child: Column(
           children: [
-            const DrawerHeader(
+            DrawerHeader(
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [Colors.blue, Colors.purple]),
+                gradient: LinearGradient(
+                  colors: [colorScheme.primary, colorScheme.secondary],
+                ),
               ),
-              child: Center(
+              child: const Center(
                 child: Text(
                   'Settings',
                   style: TextStyle(
@@ -61,13 +64,29 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
               ),
             ),
 
-            /// 🌗 Theme toggle
+            /// 🎨 Theme Settings
+            ListTile(
+              leading: const Icon(Icons.palette),
+              title: const Text('Theme Settings'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.pop(context); // Close drawer
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ThemeSettingsScreen(),
+                  ),
+                );
+              },
+            ),
+
+            /// 🌗 Quick Dark Mode Toggle
             Consumer<ThemeProvider>(
               builder: (_, themeProvider, __) => ListTile(
                 leading: Icon(
                   themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
                 ),
-                title: const Text('Theme'),
+                title: const Text('Dark Mode'),
                 trailing: Switch(
                   value: themeProvider.isDarkMode,
                   onChanged: (_) => themeProvider.toggleTheme(),
@@ -104,23 +123,37 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
               itemBuilder: (context, index) {
                 final project = viewModel.projects[index];
 
-                return ListTile(
-                  title: Text(project.name),
-                  trailing: Text(
-                    '${project.deadline.day}/${project.deadline.month}/${project.deadline.year}',
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
                   ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChangeNotifierProvider(
-                          create: (ctx) =>
-                              TaskViewModel(ctx.read<AppRepository>()),
-                          child: DashboardScreen(projectId: project.id),
+                  child: ListTile(
+                    title: Text(
+                      project.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      'Deadline: ${project.deadline.day}/${project.deadline.month}/${project.deadline.year}',
+                    ),
+                    trailing: Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: colorScheme.primary,
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChangeNotifierProvider(
+                            create: (ctx) =>
+                                TaskViewModel(ctx.read<AppRepository>()),
+                            child: DashboardScreen(projectId: project.id),
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 );
               },
             ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:jira_flutter_java/Features/Project/ProjectView/member_select_dialog.dart';
 import 'package:provider/provider.dart';
-import '../../Project/ProjectView/memer_select_dialog.dart';
 import '../../User/UserViewModel/user_view_model.dart';
 import '../DashboardViewModel/task_view_model.dart';
 
@@ -25,25 +25,15 @@ class _CreateTodoDialogState extends State<CreateTodoDialog> {
   static const int descLimit = 100;
   final Set<String> selectedUids = {};
 
-  OutlineInputBorder _border() =>
-      OutlineInputBorder(borderRadius: BorderRadius.circular(14));
-
-  Color get _dialogBorderColor =>
-      Theme.of(context).brightness == Brightness.dark
-      ? Colors.white
-      : Colors.black;
-
   void _showAccessRevokedDialog(BuildContext dialogContext) {
     showDialog(
       context: dialogContext,
       barrierDismissible: false,
       builder: (alertContext) => WillPopScope(
         onWillPop: () async {
-          // Handle back button press - pop 3 times to go back to project list
           int popCount = 0;
           Navigator.of(alertContext).popUntil((route) {
             popCount++;
-            // Pop 3 routes: alert dialog, create todo dialog, dashboard screen
             return popCount >= 3 || route.isFirst;
           });
           return false;
@@ -54,12 +44,9 @@ class _CreateTodoDialogState extends State<CreateTodoDialog> {
           actions: [
             TextButton(
               onPressed: () {
-                // Use popUntil to safely pop multiple routes
-                // This will pop: alert dialog, create todo dialog, and dashboard screen
                 int popCount = 0;
                 Navigator.of(alertContext).popUntil((route) {
                   popCount++;
-                  // Pop 3 routes: alert dialog, create todo dialog, dashboard screen
                   return popCount >= 3 || route.isFirst;
                 });
               },
@@ -73,10 +60,12 @@ class _CreateTodoDialogState extends State<CreateTodoDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return AlertDialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: _dialogBorderColor, width: 1),
+        side: BorderSide(color: colorScheme.outline, width: 1),
       ),
       title: const Text('Create Todo'),
       content: SizedBox(
@@ -86,10 +75,7 @@ class _CreateTodoDialogState extends State<CreateTodoDialog> {
           children: [
             TextField(
               controller: titleCtrl,
-              decoration: InputDecoration(
-                labelText: 'Title',
-                border: _border(),
-              ),
+              decoration: const InputDecoration(labelText: 'Title'),
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 12),
@@ -97,9 +83,8 @@ class _CreateTodoDialogState extends State<CreateTodoDialog> {
               controller: descCtrl,
               maxLines: 3,
               maxLength: descLimit,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Description',
-                border: _border(),
                 counterText: '',
               ),
               onChanged: (_) => setState(() {}),
@@ -112,8 +97,6 @@ class _CreateTodoDialogState extends State<CreateTodoDialog> {
               ),
             ),
             const SizedBox(height: 12),
-
-            /// Assign member
             InkWell(
               onTap: () async {
                 final currentContext = context;
@@ -152,7 +135,7 @@ class _CreateTodoDialogState extends State<CreateTodoDialog> {
                   vertical: 14,
                 ),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade400),
+                  border: Border.all(color: colorScheme.outline),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
@@ -179,7 +162,7 @@ class _CreateTodoDialogState extends State<CreateTodoDialog> {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: titleCtrl.text.trim().isEmpty
+          onPressed: titleCtrl.text.trim().isEmpty || selectedUids.isEmpty
               ? null
               : () async {
                   final currentContext = context;
@@ -188,9 +171,7 @@ class _CreateTodoDialogState extends State<CreateTodoDialog> {
                       projectId: widget.projectId,
                       title: titleCtrl.text.trim(),
                       description: descCtrl.text.trim(),
-                      assignedUserUid: selectedUids.isNotEmpty
-                          ? selectedUids.first
-                          : null,
+                      assignedUserUid: selectedUids.first,
                     );
 
                     if (mounted) Navigator.pop(currentContext);

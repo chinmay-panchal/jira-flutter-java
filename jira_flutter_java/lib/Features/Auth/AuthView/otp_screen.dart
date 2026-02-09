@@ -64,10 +64,7 @@ class _OtpScreenState extends State<OtpScreen> {
         textAlign: TextAlign.center,
         maxLength: 1,
         style: const TextStyle(fontSize: 20),
-        decoration: const InputDecoration(
-          counterText: '',
-          border: OutlineInputBorder(),
-        ),
+        decoration: const InputDecoration(counterText: ''),
         onChanged: (value) {
           if (value.isNotEmpty && index < 5) {
             _focusNodes[index + 1].requestFocus();
@@ -84,6 +81,7 @@ class _OtpScreenState extends State<OtpScreen> {
   @override
   Widget build(BuildContext context) {
     final authVm = context.watch<AuthViewModel>();
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: SingleChildScrollView(
@@ -96,15 +94,20 @@ class _OtpScreenState extends State<OtpScreen> {
               style: GoogleFonts.calligraffitti(
                 fontSize: 48,
                 fontWeight: FontWeight.w500,
+                color: colorScheme.primary,
               ),
             ),
             const SizedBox(height: 16),
             const Image(image: AssetImage("assets/images/forgot_pass.jpg")),
             const SizedBox(height: 32),
 
-            const Text(
+            Text(
               "Enter OTP",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
             ),
             const SizedBox(height: 8),
 
@@ -112,7 +115,7 @@ class _OtpScreenState extends State<OtpScreen> {
               Text(
                 "We sent a code to ${getMaskedPhoneNumber()}",
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
+                style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6)),
               ),
               const SizedBox(height: 24),
             ] else
@@ -128,64 +131,59 @@ class _OtpScreenState extends State<OtpScreen> {
 
             const SizedBox(height: 24),
 
-            InkWell(
-              onTap: authVm.isLoading
-                  ? null
-                  : () async {
-                      if (_otp.length != 6) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('OTP must be 6 digits')),
-                        );
-                        return;
-                      }
+            SizedBox(
+              height: 56,
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: authVm.isLoading
+                    ? null
+                    : () async {
+                        if (_otp.length != 6) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('OTP must be 6 digits'),
+                            ),
+                          );
+                          return;
+                        }
 
-                      authVm.clearError();
+                        authVm.clearError();
 
-                      // Use appropriate verification method
-                      final success = _isMobileOtp
-                          ? await authVm.verifyPhoneOtp(_otp)
-                          : await authVm.verifyOtp(_otp);
+                        final success = _isMobileOtp
+                            ? await authVm.verifyPhoneOtp(_otp)
+                            : await authVm.verifyOtp(_otp);
 
-                      if (!mounted) return;
+                        if (!mounted) return;
 
-                      if (!success) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(authVm.errorMessage ?? 'Invalid OTP'),
-                            backgroundColor: Colors.red,
+                        if (!success) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                authVm.errorMessage ?? 'Invalid OTP',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ResetPasswordScreen(),
                           ),
                         );
-                        return;
-                      }
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ResetPasswordScreen(),
-                        ),
-                      );
-                    },
-              child: Container(
-                height: 56,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  border: Border.all(),
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                      },
                 child: authVm.isLoading
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 24,
                         width: 24,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.black,
+                          color: colorScheme.onPrimary,
                         ),
                       )
-                    : const Text(
-                        "Verify OTP",
-                        style: TextStyle(color: Colors.black),
-                      ),
+                    : const Text("Verify OTP", style: TextStyle(fontSize: 16)),
               ),
             ),
             const SizedBox(height: 80),
