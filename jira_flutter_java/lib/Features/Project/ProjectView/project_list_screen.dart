@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jira_flutter_java/Core/data/repository/app_repository.dart';
 import 'package:jira_flutter_java/Features/Dashboard/DashboardViewModel/task_view_model.dart';
-import 'package:jira_flutter_java/Features/theme/theme_settings_screen.dart';
+import 'package:jira_flutter_java/Core/theme/theme_settings_screen.dart';
 import 'package:provider/provider.dart';
 
 import 'package:jira_flutter_java/Core/theme/theme_provider.dart';

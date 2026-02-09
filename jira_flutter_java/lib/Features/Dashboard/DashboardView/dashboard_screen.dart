@@ -4,7 +4,7 @@ import 'package:jira_flutter_java/Features/Auth/AuthViewModel/auth_view_model.da
 import 'package:jira_flutter_java/Features/Dashboard/DashboardView/project_details_dialog.dart';
 import 'package:jira_flutter_java/Features/Project/ProjectViewModel/project_view_model.dart';
 import 'package:jira_flutter_java/Features/User/UserViewModel/user_view_model.dart';
-import 'package:jira_flutter_java/Features/theme/theme_settings_screen.dart';
+import 'package:jira_flutter_java/Core/theme/theme_settings_screen.dart';
 import 'package:provider/provider.dart';
 import '../DashboardViewModel/task_view_model.dart';
 import '../DashboardModel/task_model.dart';
