@@ -4,6 +4,7 @@ import 'package:jira_flutter_java/Features/Auth/AuthViewModel/auth_view_model.da
 import 'package:jira_flutter_java/Features/Dashboard/DashboardView/project_details_dialog.dart';
 import 'package:jira_flutter_java/Features/Project/ProjectViewModel/project_view_model.dart';
 import 'package:jira_flutter_java/Features/User/UserViewModel/user_view_model.dart';
+import 'package:jira_flutter_java/Features/theme/theme_settings_screen.dart';
 import 'package:provider/provider.dart';
 import '../DashboardViewModel/task_view_model.dart';
 import '../DashboardModel/task_model.dart';
@@ -185,6 +186,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<TaskViewModel>();
+    final colorScheme = Theme.of(context).colorScheme;
 
     // CRITICAL CHANGE:
     // We moved the _setInitialPage logic mostly to initState/postFrameCallback.
@@ -242,11 +244,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       drawer: Drawer(
         child: Column(
           children: [
-            const DrawerHeader(
+            DrawerHeader(
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [Colors.blue, Colors.purple]),
+                gradient: LinearGradient(
+                  colors: [colorScheme.primary, colorScheme.secondary],
+                ),
               ),
-              child: Center(
+              child: const Center(
                 child: Text(
                   'Settings',
                   style: TextStyle(
@@ -258,7 +262,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            /// 🌗 Theme toggle
+            /// 🎨 Theme Settings
+            ListTile(
+              leading: const Icon(Icons.palette),
+              title: const Text('Theme Settings'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.pop(context); // Close drawer
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ThemeSettingsScreen(),
+                  ),
+                );
+              },
+            ),
+
+            /// 🌗 Quick Dark Mode Toggle
             Consumer<ThemeProvider>(
               builder: (context, themeProvider, _) {
                 return ListTile(
@@ -267,7 +287,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ? Icons.dark_mode
                         : Icons.light_mode,
                   ),
-                  title: const Text('Theme'),
+                  title: const Text('Dark Mode'),
                   trailing: Switch(
                     value: themeProvider.isDarkMode,
                     onChanged: (_) => themeProvider.toggleTheme(),

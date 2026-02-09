@@ -34,6 +34,7 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     final authVm = context.watch<AuthViewModel>();
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: SingleChildScrollView(
@@ -50,6 +51,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   style: GoogleFonts.calligraffitti(
                     fontSize: 48,
                     fontWeight: FontWeight.w500,
+                    color: colorScheme.primary,
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -62,32 +64,24 @@ class _SignupScreenState extends State<SignupScreen> {
                           Expanded(
                             child: TextFormField(
                               controller: firstNameController,
-                              decoration: InputDecoration(
+                              decoration: const InputDecoration(
                                 hintText: "Firstname",
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
                               ),
-                              validator: (v) =>
-                                  v == null || v.trim().isEmpty
-                                      ? 'Required'
-                                      : null,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Required'
+                                  : null,
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: TextFormField(
                               controller: lastNameController,
-                              decoration: InputDecoration(
+                              decoration: const InputDecoration(
                                 hintText: "Lastname",
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
                               ),
-                              validator: (v) =>
-                                  v == null || v.trim().isEmpty
-                                      ? 'Required'
-                                      : null,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Required'
+                                  : null,
                             ),
                           ),
                         ],
@@ -96,12 +90,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       TextFormField(
                         controller: emailController,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(
-                          hintText: "Email",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
+                        decoration: const InputDecoration(hintText: "Email"),
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
                             return 'Email is required';
@@ -118,11 +107,8 @@ class _SignupScreenState extends State<SignupScreen> {
                       TextFormField(
                         controller: mobileController,
                         keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           hintText: "Mobile Number",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
                         ),
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
@@ -138,12 +124,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       TextFormField(
                         controller: passwordController,
                         obscureText: true,
-                        decoration: InputDecoration(
-                          hintText: "Password",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
+                        decoration: const InputDecoration(hintText: "Password"),
                         validator: (v) {
                           if (v == null || v.isEmpty) {
                             return 'Password is required';
@@ -158,11 +139,8 @@ class _SignupScreenState extends State<SignupScreen> {
                       TextFormField(
                         controller: confirmPasswordController,
                         obscureText: true,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           hintText: "Confirm Password",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
                         ),
                         validator: (v) {
                           if (v == null || v.isEmpty) {
@@ -178,66 +156,62 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                InkWell(
-                  onTap: authVm.isLoading
-                      ? null
-                      : () async {
-                          if (!_formKey.currentState!.validate()) return;
+                SizedBox(
+                  height: 56,
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: authVm.isLoading
+                        ? null
+                        : () async {
+                            if (!_formKey.currentState!.validate()) return;
 
-                          await authVm.signup(
-                            email: emailController.text.trim(),
-                            password: passwordController.text.trim(),
-                            firstName: firstNameController.text.trim(),
-                            lastName: lastNameController.text.trim(),
-                            mobile: mobileController.text.trim(),
-                          );
-
-                          if (authVm.errorMessage != null && mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(authVm.errorMessage!),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-
-                          if (authVm.errorMessage == null && mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content:
-                                    Text('Account created successfully!'),
-                                backgroundColor: Colors.green,
-                              ),
+                            await authVm.signup(
+                              email: emailController.text.trim(),
+                              password: passwordController.text.trim(),
+                              firstName: firstNameController.text.trim(),
+                              lastName: lastNameController.text.trim(),
+                              mobile: mobileController.text.trim(),
                             );
 
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => const LoginScreen()),
-                            );
-                          }
-                        },
-                  child: Container(
-                    height: 56,
-                    width: double.infinity,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      border: Border.all(),
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                            if (authVm.errorMessage != null && mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(authVm.errorMessage!),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+
+                            if (authVm.errorMessage == null && mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Account created successfully!',
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const LoginScreen(),
+                                ),
+                              );
+                            }
+                          },
                     child: authVm.isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             height: 24,
                             width: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.black,
+                              color: colorScheme.onPrimary,
                             ),
                           )
                         : const Text(
                             "Register",
-                            style: TextStyle(color: Colors.black),
+                            style: TextStyle(fontSize: 16),
                           ),
                   ),
                 ),
@@ -246,8 +220,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                          builder: (_) => const LoginScreen()),
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
                     );
                   },
                   child: const Text("Already have an account? Sign In"),

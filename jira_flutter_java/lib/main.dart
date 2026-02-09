@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:jira_flutter_java/Core/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'Core/data/dataSource/app_data_source.dart';
 import 'Core/data/repository/app_repository.dart';
 import 'Core/network/global_app.dart';
-import 'Core/theme/theme_provider.dart';
 
 import 'Features/Auth/AuthView/login_screen.dart';
 import 'Features/Auth/AuthViewModel/auth_view_model.dart';
@@ -62,8 +62,8 @@ class MyApp extends StatelessWidget {
             themeMode: themeProvider.isDarkMode
                 ? ThemeMode.dark
                 : ThemeMode.light,
-            theme: _lightTheme,
-            darkTheme: _darkTheme,
+            theme: themeProvider.lightTheme, // Now uses selected theme
+            darkTheme: themeProvider.darkTheme, // Now uses selected theme
             home: authVm.jwtToken == null
                 ? const LoginScreen()
                 : const ProjectListScreen(),
@@ -73,90 +73,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-/* ---------------- LIGHT THEME ---------------- */
-
-final ThemeData _lightTheme = ThemeData(
-  useMaterial3: true,
-  colorScheme: const ColorScheme.light(
-    primary: Colors.black,
-    secondary: Colors.black,
-    error: Colors.red,
-    surface: Colors.white,
-    onSurface: Colors.black,
-    outline: Colors.black,
-  ),
-
-  scaffoldBackgroundColor: Colors.white,
-
-  inputDecorationTheme: InputDecorationTheme(
-    floatingLabelStyle: const TextStyle(color: Colors.black),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: Colors.black),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: Colors.black),
-    ),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-  ),
-
-  textButtonTheme: TextButtonThemeData(
-    style: TextButton.styleFrom(foregroundColor: Colors.black),
-  ),
-
-  floatingActionButtonTheme: const FloatingActionButtonThemeData(
-    backgroundColor: Colors.black,
-    foregroundColor: Colors.white,
-  ),
-
-  textSelectionTheme: const TextSelectionThemeData(
-    cursorColor: Colors.black,
-    selectionHandleColor: Colors.black,
-  ),
-);
-
-/* ---------------- DARK THEME ---------------- */
-
-final ThemeData _darkTheme = ThemeData(
-  useMaterial3: true,
-  colorScheme: const ColorScheme.dark(
-    primary: Colors.white,
-    secondary: Colors.white,
-    error: Colors.red,
-    surface: Colors.black,
-    onSurface: Colors.white,
-    outline: Colors.white,
-  ),
-
-  scaffoldBackgroundColor: Colors.black,
-
-  appBarTheme: const AppBarTheme(backgroundColor: Colors.black, elevation: 0),
-
-  inputDecorationTheme: InputDecorationTheme(
-    floatingLabelStyle: const TextStyle(color: Colors.white),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: Colors.white),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: Colors.white),
-    ),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-  ),
-
-  textButtonTheme: TextButtonThemeData(
-    style: TextButton.styleFrom(foregroundColor: Colors.white),
-  ),
-
-  floatingActionButtonTheme: const FloatingActionButtonThemeData(
-    backgroundColor: Colors.white,
-    foregroundColor: Colors.black,
-  ),
-
-  textSelectionTheme: const TextSelectionThemeData(
-    cursorColor: Colors.white,
-    selectionHandleColor: Colors.white,
-  ),
-);

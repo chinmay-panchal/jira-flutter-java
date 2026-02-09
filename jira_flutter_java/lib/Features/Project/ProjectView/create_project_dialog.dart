@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:jira_flutter_java/Features/Project/ProjectView/member_select_dialog.dart';
 import 'package:provider/provider.dart';
 
-import 'memer_select_dialog.dart';
 import '../../User/UserViewModel/user_view_model.dart';
 import '../ProjectModel/project_form_model.dart';
 import '../ProjectViewModel/project_view_model.dart';
@@ -22,20 +22,14 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
 
   final Set<String> selectedUids = {};
 
-  OutlineInputBorder _border() =>
-      OutlineInputBorder(borderRadius: BorderRadius.circular(14));
-
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return AlertDialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? Colors.white
-              : Colors.black,
-          width: 1,
-        ),
+        side: BorderSide(color: colorScheme.outline, width: 1),
       ),
       title: const Text('Create Project'),
       content: SizedBox(
@@ -45,19 +39,15 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
           children: [
             TextField(
               controller: nameCtrl,
-              decoration: InputDecoration(
-                labelText: 'Project name',
-                border: _border(),
-              ),
+              decoration: const InputDecoration(labelText: 'Project name'),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: descCtrl,
               maxLines: 3,
               maxLength: descLimit,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Description',
-                border: _border(),
                 counterText: '',
               ),
               onChanged: (_) => setState(() {}),
@@ -96,7 +86,7 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
                   vertical: 14,
                 ),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade400),
+                  border: Border.all(color: colorScheme.outline),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
@@ -124,16 +114,30 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
                 );
                 if (d != null) setState(() => deadline = d);
               },
-              child: Row(
-                children: [
-                  const Icon(Icons.calendar_today, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    deadline == null
-                        ? 'Select deadline'
-                        : '${deadline!.day}/${deadline!.month}/${deadline!.year}',
-                  ),
-                ],
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: colorScheme.outline),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 18,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      deadline == null
+                          ? 'Select deadline'
+                          : '${deadline!.day}/${deadline!.month}/${deadline!.year}',
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

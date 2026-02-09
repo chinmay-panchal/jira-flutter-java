@@ -28,6 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authVm = context.watch<AuthViewModel>();
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -43,6 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: GoogleFonts.calligraffitti(
                   fontSize: 48,
                   fontWeight: FontWeight.w500,
+                  color: colorScheme.primary,
                 ),
               ),
               const SizedBox(height: 32),
@@ -53,12 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextFormField(
                       controller: emailController,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(
-                        hintText: "Email",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
+                      decoration: const InputDecoration(hintText: "Email"),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return 'Email is required';
@@ -75,12 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextFormField(
                       controller: passwordController,
                       obscureText: true,
-                      decoration: InputDecoration(
-                        hintText: "Password",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
+                      decoration: const InputDecoration(hintText: "Password"),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Password is required';
@@ -108,66 +100,60 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              InkWell(
-                onTap: authVm.isLoading
-                    ? null
-                    : () async {
-                        if (!_formKey.currentState!.validate()) return;
 
-                        await authVm.login(
-                          email: emailController.text.trim(),
-                          password: passwordController.text.trim(),
-                        );
+              // Updated sign in button using ElevatedButton
+              SizedBox(
+                height: 56,
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: authVm.isLoading
+                      ? null
+                      : () async {
+                          if (!_formKey.currentState!.validate()) return;
 
-                        if (!mounted) return;
-
-                        if (authVm.errorMessage != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(authVm.errorMessage!),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        } else if (authVm.jwtToken != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Login successful'),
-                              backgroundColor: Colors.green,
-                            ),
+                          await authVm.login(
+                            email: emailController.text.trim(),
+                            password: passwordController.text.trim(),
                           );
 
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ProjectListScreen(),
-                            ),
-                          );
-                        }
-                      },
-                child: Container(
-                  height: 56,
-                  width: double.infinity,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: Border.all(),
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                          if (!mounted) return;
+
+                          if (authVm.errorMessage != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(authVm.errorMessage!),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          } else if (authVm.jwtToken != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Login successful'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ProjectListScreen(),
+                              ),
+                            );
+                          }
+                        },
                   child: authVm.isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 24,
                           width: 24,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.black,
+                            color: colorScheme.onPrimary,
                           ),
                         )
-                      : const Text(
-                          "Sign in",
-                          style: TextStyle(color: Colors.black),
-                        ),
+                      : const Text("Sign in", style: TextStyle(fontSize: 16)),
                 ),
               ),
+
               const SizedBox(height: 16),
               InkWell(
                 onTap: () {
