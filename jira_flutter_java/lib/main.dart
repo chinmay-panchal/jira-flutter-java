@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:jira_flutter_java/Core/theme/theme_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'Core/data/dataSource/app_data_source.dart';
 import 'Core/data/repository/app_repository.dart';
@@ -16,7 +17,22 @@ import 'Features/Dashboard/DashboardViewModel/task_view_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  
+  // Initialize Firebase with web-specific options
+  if (kIsWeb) {
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: "AIzaSyDcpVqqzZBlcY4Q29MAowqTv1rRH1Auwbw",
+        authDomain: "java-flutter-jira.firebaseapp.com",
+        projectId: "java-flutter-jira",
+        storageBucket: "java-flutter-jira.firebasestorage.app",
+        messagingSenderId: "582096148432",
+        appId: "1:582096148432:web:518a72bfc8212d734b4bd5",
+      ),
+    );
+  } else {
+    await Firebase.initializeApp();
+  }
 
   final dataSource = AppDataSource();
   final repository = AppRepository(dataSource);
@@ -62,8 +78,8 @@ class MyApp extends StatelessWidget {
             themeMode: themeProvider.isDarkMode
                 ? ThemeMode.dark
                 : ThemeMode.light,
-            theme: themeProvider.lightTheme, // Now uses selected theme
-            darkTheme: themeProvider.darkTheme, // Now uses selected theme
+            theme: themeProvider.lightTheme,
+            darkTheme: themeProvider.darkTheme,
             home: authVm.jwtToken == null
                 ? const LoginScreen()
                 : const ProjectListScreen(),

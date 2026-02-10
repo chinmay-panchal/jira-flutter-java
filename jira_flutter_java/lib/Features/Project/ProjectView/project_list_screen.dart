@@ -133,9 +133,9 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                       project.name,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    subtitle: Text(
-                      'Deadline: ${project.deadline.day}/${project.deadline.month}/${project.deadline.year}',
-                    ),
+                    // subtitle: Text(
+                    //   'Deadline: ${project.deadline.day}/${project.deadline.month}/${project.deadline.year}',
+                    // ),
                     trailing: Icon(
                       Icons.arrow_forward_ios,
                       size: 16,
