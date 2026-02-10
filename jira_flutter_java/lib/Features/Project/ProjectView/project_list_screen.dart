@@ -141,8 +141,8 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                       size: 16,
                       color: colorScheme.primary,
                     ),
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => ChangeNotifierProvider(
@@ -152,6 +152,10 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                           ),
                         ),
                       );
+
+                      if (mounted) {
+                        await viewModel.loadProjects();
+                      }
                     },
                   ),
                 );
