@@ -39,9 +39,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   //   ('DONE', Colors.green),
   // ];
 
+  // Filter state
+  String? _selectedAssigneeUid;
+  bool _isFilterActive = false;
+
   final sections = const ['TODO', 'IN_PROGRESS', 'QA', 'DONE'];
 
-  // In DashboardScreen, update the initState:
   @override
   void initState() {
     super.initState();
@@ -50,12 +53,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final vm = context.read<TaskViewModel>();
-      final userVm = context.read<UserViewModel>(); // Add this
+      final userVm = context.read<UserViewModel>();
 
       if (vm.tasks.isEmpty) {
         await vm.loadTasks(widget.projectId);
-        // Load users after loading tasks
-        await userVm.loadProjectMembers(widget.projectId); // Add this
+        await userVm.loadProjectMembers(widget.projectId);
       }
 
       if (mounted && !kIsWeb) {
@@ -69,7 +71,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final userVm = context.watch<UserViewModel>();
 
-    // If users are still loading, show loading indicator
     if (userVm.isLoading && userVm.users.isEmpty) {
       return 'Loading...';
     }
@@ -77,11 +78,97 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final user = userVm.users.firstWhereOrNull((u) => u.uid == uid);
 
     if (user == null) {
-      // User not found - might need to load project members
       return 'Unknown';
     }
 
-    return '${user.firstName} ${user.lastName}'.trim();
+    // Get initials from first and last name
+    final firstName = user.firstName.trim();
+    final lastName = user.lastName.trim();
+
+    String initials = '';
+    if (firstName.isNotEmpty) {
+      initials += firstName[0].toUpperCase();
+    }
+    if (lastName.isNotEmpty) {
+      initials += lastName[0].toUpperCase();
+    }
+
+    return initials.isEmpty ? 'NA' : initials;
+  }
+
+  void _showAssigneeFilterDialog() {
+    final userVm = context.read<UserViewModel>();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Filter by Assignee'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Show all option
+              ListTile(
+                leading: _selectedAssigneeUid == null
+                    ? const Icon(Icons.check_circle, color: Colors.green)
+                    : const Icon(Icons.circle_outlined),
+                title: const Text('All Tasks'),
+                onTap: () {
+                  setState(() {
+                    _selectedAssigneeUid = null;
+                    _isFilterActive = false;
+                  });
+                  Navigator.pop(dialogContext);
+                },
+              ),
+              const Divider(),
+              // List of project members
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: userVm.users.length,
+                  itemBuilder: (context, index) {
+                    final user = userVm.users[index];
+                    final isSelected = _selectedAssigneeUid == user.uid;
+
+                    return ListTile(
+                      leading: isSelected
+                          ? const Icon(Icons.check_circle, color: Colors.green)
+                          : const Icon(Icons.circle_outlined),
+                      title: Text('${user.firstName} ${user.lastName}'.trim()),
+                      subtitle: Text(user.email),
+                      onTap: () {
+                        setState(() {
+                          _selectedAssigneeUid = user.uid;
+                          _isFilterActive = true;
+                        });
+                        Navigator.pop(dialogContext);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<TaskModel> _getFilteredTasks(List<TaskModel> tasks) {
+    if (!_isFilterActive || _selectedAssigneeUid == null) {
+      return tasks;
+    }
+    return tasks
+        .where((task) => task.assignedUserUid == _selectedAssigneeUid)
+        .toList();
   }
 
   Widget _taskCard(
@@ -110,115 +197,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Ticket ID
+              // Title
               Text(
-                'TICKET-${task.id}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: accentColor ?? Colors.grey,
+                task.title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
                 ),
-              ),
-              const SizedBox(height: 4),
-
-              // Title + Assignee (if no description)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      task.title,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (task.description.isEmpty) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            (accentColor ??
-                                    Theme.of(context).colorScheme.primary)
-                                .withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.person, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            assigneeName,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
 
-              // Description + Assignee (if description exists)
+              // Description (if exists)
               if (task.description.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        task.description,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            (accentColor ??
-                                    Theme.of(context).colorScheme.primary)
-                                .withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.person, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            assigneeName,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 4),
+                Text(
+                  task.description,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
+
+              // Ticket number and Assignee on same row
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'TICKET-${task.id}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: accentColor ?? Colors.grey,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          (accentColor ?? Theme.of(context).colorScheme.primary)
+                              .withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.person, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          assigneeName,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -345,7 +388,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildColumn(BuildContext context, String status, TaskViewModel vm) {
     final color = Theme.of(context).colorScheme.primary;
 
-    final tasks = vm.byStatus(status);
+    final allTasks = vm.byStatus(status);
+    final tasks = _getFilteredTasks(allTasks);
 
     return Expanded(
       child: Padding(
@@ -422,7 +466,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: tasks.isEmpty
                         ? Center(
                             child: Text(
-                              'No tasks',
+                              _isFilterActive
+                                  ? 'No tasks for this assignee'
+                                  : 'No tasks',
                               style: TextStyle(
                                 color: Colors.grey.shade400,
                                 fontSize: 14,
@@ -446,7 +492,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   _edgeHoverStart = null;
                                 },
 
-                                // 👇 Drag preview
                                 feedback: Material(
                                   color: Colors.transparent,
                                   child: SizedBox(
@@ -464,13 +509,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                 ),
 
-                                // 👇 While dragging
                                 childWhenDragging: Opacity(
                                   opacity: 0.3,
                                   child: _taskCard(context, task),
                                 ),
 
-                                // 👇 Normal state
                                 child: _taskCard(context, task),
                               );
                             },
@@ -511,6 +554,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         actions: [
+          // Filter button
+          Stack(
+            children: [
+              IconButton(
+                tooltip: 'Filter by assignee',
+                icon: const Icon(Icons.filter_list),
+                onPressed: _showAssigneeFilterDialog,
+              ),
+              if (_isFilterActive)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           IconButton(
             tooltip: 'Project details',
             icon: const Icon(Icons.work_outline),
@@ -601,7 +668,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: vm.isLoading
           ? const Center(child: CircularProgressIndicator())
           : kIsWeb
-          // WEB: Show all columns side-by-side
           ? Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
@@ -611,7 +677,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 }).toList(),
               ),
             )
-          // MOBILE: Use PageView with scrolling
           : Listener(
               onPointerMove: (e) => _handleAutoScroll(e.position, context),
               child: PageView.builder(

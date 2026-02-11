@@ -82,43 +82,44 @@ class ProjectDetailsDialog extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // Description Section
-              Text(
-                'Description',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                width: double.infinity,
-                constraints: const BoxConstraints(minHeight: 80),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: colorScheme.outline),
-                ),
-                child: Text(
-                  project.description.isEmpty ? 'N/A' : project.description,
+              if (project.description.isNotEmpty) ...[
+                Text(
+                  'Description',
                   style: TextStyle(
-                    fontSize: 14,
-                    color: project.description.isEmpty
-                        ? colorScheme.onSurfaceVariant.withOpacity(0.5)
-                        : colorScheme.onSurface,
-                    fontStyle: project.description.isEmpty
-                        ? FontStyle.italic
-                        : FontStyle.normal,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
-              ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(minHeight: 80),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: colorScheme.outline),
+                  ),
+                  child: Text(
+                    project.description.isEmpty ? 'N/A' : project.description,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: project.description.isEmpty
+                          ? colorScheme.onSurfaceVariant.withOpacity(0.5)
+                          : colorScheme.onSurface,
+                      fontStyle: project.description.isEmpty
+                          ? FontStyle.italic
+                          : FontStyle.normal,
+                    ),
+                  ),
+                ),
 
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
 
               // Deadline Section
               Text(
