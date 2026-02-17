@@ -64,13 +64,12 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
               ),
             ),
 
-            /// 🎨 Theme Settings
             ListTile(
               leading: const Icon(Icons.palette),
               title: const Text('Theme Settings'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
-                Navigator.pop(context); // Close drawer
+                Navigator.pop(context);
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -80,7 +79,6 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
               },
             ),
 
-            /// 🌗 Quick Dark Mode Toggle
             Consumer<ThemeProvider>(
               builder: (_, themeProvider, __) => ListTile(
                 leading: Icon(
@@ -96,7 +94,6 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
 
             const Divider(),
 
-            /// 🚪 Logout
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Logout'),
@@ -112,54 +109,64 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
       body: viewModel.isLoading
           ? const Center(child: CircularProgressIndicator())
           : viewModel.projects.isEmpty
-          ? const Center(
-              child: Text(
-                'No projects yet.\nTap + to create one',
-                textAlign: TextAlign.center,
+          ? RefreshIndicator(
+              onRefresh: () => context.read<ProjectViewModel>().loadProjects(),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  SizedBox(height: 200),
+                  Center(
+                    child: Text(
+                      'No projects yet.\nTap + to create one',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
               ),
             )
-          : ListView.builder(
-              itemCount: viewModel.projects.length,
-              itemBuilder: (context, index) {
-                final project = viewModel.projects[index];
+          : RefreshIndicator(
+              onRefresh: () => context.read<ProjectViewModel>().loadProjects(),
+              child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: viewModel.projects.length,
+                itemBuilder: (context, index) {
+                  final project = viewModel.projects[index];
 
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: ListTile(
-                    title: Text(
-                      project.name,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                  return Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
                     ),
-                    // subtitle: Text(
-                    //   'Deadline: ${project.deadline.day}/${project.deadline.month}/${project.deadline.year}',
-                    // ),
-                    trailing: Icon(
-                      Icons.arrow_forward_ios,
-                      size: 16,
-                      color: colorScheme.primary,
-                    ),
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChangeNotifierProvider(
-                            create: (ctx) =>
-                                TaskViewModel(ctx.read<AppRepository>()),
-                            child: DashboardScreen(projectId: project.id),
+                    child: ListTile(
+                      title: Text(
+                        project.name,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      trailing: Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: colorScheme.primary,
+                      ),
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChangeNotifierProvider(
+                              create: (ctx) =>
+                                  TaskViewModel(ctx.read<AppRepository>()),
+                              child: DashboardScreen(projectId: project.id),
+                            ),
                           ),
-                        ),
-                      );
+                        );
 
-                      if (mounted) {
-                        await viewModel.loadProjects();
-                      }
-                    },
-                  ),
-                );
-              },
+                        if (mounted) {
+                          await viewModel.loadProjects();
+                        }
+                      },
+                    ),
+                  );
+                },
+              ),
             ),
 
       floatingActionButton: FloatingActionButton(
