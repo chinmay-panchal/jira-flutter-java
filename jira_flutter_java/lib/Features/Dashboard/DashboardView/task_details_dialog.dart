@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jira_flutter_java/Features/Dashboard/DashboardModel/task_model.dart';
 import 'package:jira_flutter_java/Features/User/UserViewModel/user_view_model.dart';
+import 'package:jira_flutter_java/Features/Auth/AuthViewModel/auth_view_model.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 
@@ -13,11 +14,20 @@ class TaskDetailDialog extends StatelessWidget {
     if (task.assignedUserUid == null) return 'Unassigned';
 
     final userVm = context.watch<UserViewModel>();
+    final authVm = context.watch<AuthViewModel>();
+    final currentUserId = authVm.uid;
+
     final user = userVm.users.firstWhereOrNull(
       (u) => u.uid == task.assignedUserUid,
     );
 
     if (user == null) return 'Unknown';
+
+    // Show "You" if it's the current user
+    if (task.assignedUserUid == currentUserId) {
+      return 'You';
+    }
+
     return '${user.firstName} ${user.lastName}'.trim();
   }
 

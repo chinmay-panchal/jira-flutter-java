@@ -24,6 +24,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   late final PageController _pageController;
+  final TextEditingController _searchController = TextEditingController();
 
   bool _isAutoScrolling = false;
   bool _isDragging = false;
@@ -32,16 +33,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _initialPageSet = false;
   int? _currentPage;
 
-  // final sections = const [
-  //   ('TODO', Colors.blue),
-  //   ('IN_PROGRESS', Colors.orange),
-  //   ('QA', Colors.red),
-  //   ('DONE', Colors.green),
-  // ];
-
   // Filter state
-  String? _selectedAssigneeUid;
+  Set<String> _selectedAssigneeUids = {};
   bool _isFilterActive = false;
+  String _searchQuery = '';
+  bool _showOnlyMyIssues = true; // Default to true
+  bool _isHoveringAvatars = false; // For avatar hover effect
 
   final sections = const ['TODO', 'IN_PROGRESS', 'QA', 'DONE'];
 
@@ -50,6 +47,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _pageController = PageController(viewportFraction: 0.78);
     _pageController.addListener(_onPageControllerChange);
+    _searchController.addListener(_onSearchChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final vm = context.read<TaskViewModel>();
@@ -63,6 +61,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted && !kIsWeb) {
         _setInitialPage(vm);
       }
+    });
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase();
     });
   }
 
@@ -96,79 +100,783 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return initials.isEmpty ? 'NA' : initials;
   }
 
-  void _showAssigneeFilterDialog() {
+  String _getFullName(BuildContext context, String? uid) {
+    if (uid == null) return 'Unassigned';
+
     final userVm = context.read<UserViewModel>();
+    final user = userVm.users.firstWhereOrNull((u) => u.uid == uid);
 
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Filter by Assignee'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Show all option
-              ListTile(
-                leading: _selectedAssigneeUid == null
-                    ? const Icon(Icons.check_circle, color: Colors.green)
-                    : const Icon(Icons.circle_outlined),
-                title: const Text('All Tasks'),
-                onTap: () {
-                  setState(() {
-                    _selectedAssigneeUid = null;
-                    _isFilterActive = false;
-                  });
-                  Navigator.pop(dialogContext);
-                },
-              ),
-              const Divider(),
-              // List of project members
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: userVm.users.length,
-                  itemBuilder: (context, index) {
-                    final user = userVm.users[index];
-                    final isSelected = _selectedAssigneeUid == user.uid;
+    if (user == null) return 'Unknown';
 
-                    return ListTile(
-                      leading: isSelected
-                          ? const Icon(Icons.check_circle, color: Colors.green)
-                          : const Icon(Icons.circle_outlined),
-                      title: Text('${user.firstName} ${user.lastName}'.trim()),
-                      subtitle: Text(user.email),
-                      onTap: () {
-                        setState(() {
-                          _selectedAssigneeUid = user.uid;
-                          _isFilterActive = true;
-                        });
-                        Navigator.pop(dialogContext);
-                      },
-                    );
-                  },
+    return '${user.firstName} ${user.lastName}'.trim();
+  }
+
+  Color _getAvatarColor(String initials) {
+    final colors = [
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.red,
+      Colors.teal,
+      Colors.indigo,
+      Colors.pink,
+    ];
+
+    final index = initials.hashCode % colors.length;
+    return colors[index.abs()];
+  }
+
+  void _showAllMembersDialog() {
+    final userVm = context.read<UserViewModel>();
+    final authVm = context.read<AuthViewModel>();
+    final currentUserId = authVm.uid;
+
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final allMembers = userVm.users.toList();
+    final members = isMobile ? allMembers : allMembers.skip(5).toList();
+
+    // Create a local copy of selected UIDs for the dialog
+    Set<String> tempSelectedUids = Set.from(_selectedAssigneeUids);
+
+    if (isMobile) {
+      // Show enhanced bottom sheet for mobile
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (bottomSheetContext) => StatefulBuilder(
+          builder: (context, setBottomSheetState) {
+            final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+            final colorScheme = Theme.of(context).colorScheme;
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
               ),
-            ],
+              child: Column(
+                children: [
+                  // Enhanced Header with solid primary color background
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(24, 16, 16, 20),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(24),
+                        topRight: Radius.circular(24),
+                      ),
+                      border: Border(
+                        bottom: BorderSide(
+                          color: isDarkMode
+                              ? Colors.grey.shade800
+                              : Colors.grey.shade200,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Handle bar on blue background
+                        Center(
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Filter by Member',
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${members.length} team members',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.white.withOpacity(0.8),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Material(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              child: InkWell(
+                                onTap: () => Navigator.pop(bottomSheetContext),
+                                borderRadius: BorderRadius.circular(12),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 24,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        // Selection counter chip
+                        if (tempSelectedUids.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.check_circle,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${tempSelectedUids.length} selected',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  // Enhanced Members list with better spacing and design
+                  Expanded(
+                    child: members.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.people_outline,
+                                  size: 64,
+                                  color: Colors.grey.shade300,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No team members',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                              horizontal: 20,
+                            ),
+                            itemCount: members.length,
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final user = members[index];
+                              final initials = _getAssigneeName(
+                                context,
+                                user.uid,
+                              );
+                              final color = _getAvatarColor(initials);
+                              final isSelected = tempSelectedUids.contains(
+                                user.uid,
+                              );
+                              final isCurrentUser = user.uid == currentUserId;
+
+                              return Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    setBottomSheetState(() {
+                                      if (isSelected) {
+                                        tempSelectedUids.remove(user.uid);
+                                      } else {
+                                        tempSelectedUids.add(user.uid);
+                                      }
+                                    });
+                                  },
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? colorScheme.primary.withOpacity(
+                                              0.08,
+                                            )
+                                          : (isDarkMode
+                                                ? Colors.grey.shade900
+                                                : Colors.grey.shade50),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? colorScheme.primary
+                                            : (isDarkMode
+                                                  ? Colors.grey.shade800
+                                                  : Colors.grey.shade200),
+                                        width: isSelected ? 2 : 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        // Avatar with selection indicator
+                                        Stack(
+                                          children: [
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: isSelected
+                                                      ? colorScheme.primary
+                                                      : Colors.transparent,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                              child: CircleAvatar(
+                                                backgroundColor: color,
+                                                radius: 24,
+                                                child: Text(
+                                                  initials,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            if (isSelected)
+                                              Positioned(
+                                                right: 0,
+                                                bottom: 0,
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(
+                                                    4,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: colorScheme.primary,
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                      color: Theme.of(
+                                                        context,
+                                                      ).scaffoldBackgroundColor,
+                                                      width: 2,
+                                                    ),
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.check,
+                                                    color: Colors.white,
+                                                    size: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+
+                                        const SizedBox(width: 16),
+
+                                        // User info
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Flexible(
+                                                    child: Text(
+                                                      isCurrentUser
+                                                          ? 'You'
+                                                          : '${user.firstName} ${user.lastName}'
+                                                                .trim(),
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        fontSize: 16,
+                                                        color: isDarkMode
+                                                            ? Colors.white
+                                                            : Colors
+                                                                  .grey
+                                                                  .shade900,
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  if (isCurrentUser) ...[
+                                                    const SizedBox(width: 8),
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 8,
+                                                            vertical: 2,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: colorScheme
+                                                            .primary
+                                                            .withOpacity(0.15),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              6,
+                                                            ),
+                                                      ),
+                                                      child: Text(
+                                                        'ME',
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: colorScheme
+                                                              .primary,
+                                                          letterSpacing: 0.5,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                user.email,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+
+                                        // Selection indicator
+                                        AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 200,
+                                          ),
+                                          curve: Curves.easeInOut,
+                                          child: Icon(
+                                            isSelected
+                                                ? Icons.check_circle
+                                                : Icons.circle_outlined,
+                                            color: isSelected
+                                                ? colorScheme.primary
+                                                : Colors.grey.shade400,
+                                            size: 28,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+
+                  // Enhanced Action buttons with better styling
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? Colors.grey.shade900 : Colors.white,
+                      border: Border(
+                        top: BorderSide(
+                          color: isDarkMode
+                              ? Colors.grey.shade800
+                              : Colors.grey.shade200,
+                          width: 1,
+                        ),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, -2),
+                        ),
+                      ],
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: Row(
+                        children: [
+                          if (tempSelectedUids.isNotEmpty)
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  setBottomSheetState(() {
+                                    tempSelectedUids.clear();
+                                  });
+                                },
+                                icon: const Icon(Icons.clear_all, size: 20),
+                                label: const Text('Clear'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  side: BorderSide(
+                                    color: Colors.grey.shade400,
+                                    width: 1.5,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (tempSelectedUids.isNotEmpty)
+                            const SizedBox(width: 12),
+                          Expanded(
+                            flex: tempSelectedUids.isEmpty ? 1 : 2,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _selectedAssigneeUids = tempSelectedUids;
+                                  _isFilterActive =
+                                      _selectedAssigneeUids.isNotEmpty;
+                                  if (_isFilterActive) {
+                                    _showOnlyMyIssues = false;
+                                  }
+                                });
+                                Navigator.pop(bottomSheetContext);
+                              },
+                              icon: Icon(
+                                tempSelectedUids.isEmpty
+                                    ? Icons.filter_list_off
+                                    : Icons.filter_alt,
+                                size: 20,
+                              ),
+                              label: Text(
+                                'Apply (${tempSelectedUids.length})',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                backgroundColor: colorScheme.primary,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    } else {
+      // Show dialog for web/desktop
+      showDialog(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Container(
+              width: 500,
+              constraints: const BoxConstraints(maxHeight: 600),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'More Members',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(dialogContext),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Select members to filter tasks',
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Grid of members
+                  Flexible(
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            childAspectRatio: 0.85,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                          ),
+                      itemCount: members.length,
+                      itemBuilder: (context, index) {
+                        final user = members[index];
+                        final initials = _getAssigneeName(context, user.uid);
+                        final color = _getAvatarColor(initials);
+                        final isSelected = tempSelectedUids.contains(user.uid);
+                        final isCurrentUser = user.uid == currentUserId;
+
+                        return InkWell(
+                          onTap: () {
+                            setDialogState(() {
+                              if (isSelected) {
+                                tempSelectedUids.remove(user.uid);
+                              } else {
+                                tempSelectedUids.add(user.uid);
+                              }
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Theme.of(
+                                      context,
+                                    ).colorScheme.primary.withOpacity(0.1)
+                                  : (Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? Colors.grey.shade800
+                                        : Colors.grey.shade50),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Colors.grey.shade300,
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Stack(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: color,
+                                      radius: 28,
+                                      child: Text(
+                                        initials,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isSelected)
+                                      Positioned(
+                                        right: 0,
+                                        bottom: 0,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(2),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          child: const Icon(
+                                            Icons.check,
+                                            color: Colors.white,
+                                            size: 14,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  isCurrentUser
+                                      ? 'You'
+                                      : '${user.firstName} ${user.lastName}'
+                                            .trim(),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  user.email,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Action buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (tempSelectedUids.isNotEmpty)
+                        TextButton(
+                          onPressed: () {
+                            setDialogState(() {
+                              tempSelectedUids.clear();
+                            });
+                          },
+                          child: const Text('Clear All'),
+                        ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedAssigneeUids = tempSelectedUids;
+                            _isFilterActive = _selectedAssigneeUids.isNotEmpty;
+                            if (_isFilterActive) {
+                              _showOnlyMyIssues = false;
+                            }
+                          });
+                          Navigator.pop(dialogContext);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          tempSelectedUids.isEmpty
+                              ? 'Show All'
+                              : 'Apply Filter (${tempSelectedUids.length})',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
+      );
+    }
   }
 
   List<TaskModel> _getFilteredTasks(List<TaskModel> tasks) {
-    if (!_isFilterActive || _selectedAssigneeUid == null) {
-      return tasks;
+    var filtered = tasks;
+
+    // Apply "Only My Issues" filter
+    if (_showOnlyMyIssues) {
+      final currentUserId = context.read<AuthViewModel>().uid;
+      filtered = filtered
+          .where((task) => task.assignedUserUid == currentUserId)
+          .toList();
     }
-    return tasks
-        .where((task) => task.assignedUserUid == _selectedAssigneeUid)
-        .toList();
+    // Apply assignee filter (from clicking circles) - multi-select
+    else if (_isFilterActive && _selectedAssigneeUids.isNotEmpty) {
+      filtered = filtered
+          .where((task) => _selectedAssigneeUids.contains(task.assignedUserUid))
+          .toList();
+    }
+
+    // Apply search filter
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((task) {
+        return task.title.toLowerCase().contains(_searchQuery) ||
+            task.description.toLowerCase().contains(_searchQuery) ||
+            'TICKET-${task.id}'.toLowerCase().contains(_searchQuery);
+      }).toList();
+    }
+
+    return filtered;
   }
 
   Widget _taskCard(
@@ -178,6 +886,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     bool isDragging = false,
   }) {
     final assigneeName = _getAssigneeName(context, task.assignedUserUid);
+    final color = accentColor ?? Theme.of(context).colorScheme.primary;
+    final avatarColor = _getAvatarColor(assigneeName);
 
     return InkWell(
       onTap: isDragging
@@ -188,12 +898,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 builder: (_) => TaskDetailDialog(task: task),
               );
             },
-      borderRadius: BorderRadius.circular(10),
-      child: Card(
-        elevation: isDragging ? 8 : 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: isDragging
+              ? [
+                  BoxShadow(
+                    color: color.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                    spreadRadius: 2,
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+          border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -202,7 +937,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 task.title,
                 style: const TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -210,54 +946,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               // Description (if exists)
               if (task.description.isNotEmpty) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   task.description,
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    height: 1.4,
+                  ),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
 
-              // Ticket number and Assignee on same row
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
+
+              // Ticket number and Assignee avatar on same row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    'TICKET-${task.id}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: accentColor ?? Colors.grey,
-                    ),
-                  ),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color:
-                          (accentColor ?? Theme.of(context).colorScheme.primary)
-                              .withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(20),
+                      color: color.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.person, size: 14),
-                        const SizedBox(width: 4),
-                        Text(
-                          assigneeName,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                    child: Text(
+                      'TICKET-${task.id}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  // Only avatar circle - no full name
+                  Tooltip(
+                    message: _getFullName(context, task.assignedUserUid),
+                    child: CircleAvatar(
+                      backgroundColor: avatarColor,
+                      radius: 14,
+                      child: Text(
+                        assigneeName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ],
@@ -284,6 +1025,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void dispose() {
     _pageController.removeListener(_onPageControllerChange);
     _pageController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -391,139 +1133,646 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final allTasks = vm.byStatus(status);
     final tasks = _getFilteredTasks(allTasks);
 
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: DragTarget<TaskModel>(
-          onWillAccept: (task) {
-            return task != null && _isValidTransition(task.status, status);
-          },
-          onAccept: (task) async {
-            _isDragging = false;
-            _edgeHoverStart = null;
-            _shouldTrackPageChanges = false;
+    // Status icons
+    IconData statusIcon;
+    switch (status) {
+      case 'TODO':
+        statusIcon = Icons.assignment_outlined;
+        break;
+      case 'IN_PROGRESS':
+        statusIcon = Icons.pending_actions;
+        break;
+      case 'QA':
+        statusIcon = Icons.bug_report_outlined;
+        break;
+      case 'DONE':
+        statusIcon = Icons.check_circle_outline;
+        break;
+      default:
+        statusIcon = Icons.circle_outlined;
+    }
 
-            try {
-              await vm.updateTaskStatus(taskId: task.id, status: status);
-            } catch (_) {
-              if (mounted) {
-                _showAccessRevokedDialog();
-              }
-              return;
-            }
+    return DragTarget<TaskModel>(
+      onWillAccept: (task) {
+        return task != null && _isValidTransition(task.status, status);
+      },
+      onAccept: (task) async {
+        _isDragging = false;
+        _edgeHoverStart = null;
+        _shouldTrackPageChanges = false;
 
-            _shouldTrackPageChanges = true;
-          },
-          onLeave: (_) {
-            _edgeHoverStart = null;
-          },
-          builder: (context, candidateData, rejectedData) {
-            final isHovering = candidateData.isNotEmpty;
+        try {
+          await vm.updateTaskStatus(taskId: task.id, status: status);
+        } catch (_) {
+          if (mounted) {
+            _showAccessRevokedDialog();
+          }
+          return;
+        }
 
-            return Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(isHovering ? 0.25 : 0.15),
-                borderRadius: BorderRadius.circular(12),
-                border: isHovering ? Border.all(color: color, width: 2) : null,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
+        _shouldTrackPageChanges = true;
+      },
+      onLeave: (_) {
+        _edgeHoverStart = null;
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHovering = candidateData.isNotEmpty;
+
+        return Container(
+          margin: const EdgeInsets.all(8.0), // Changed from Padding to margin
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.grey.shade900
+                : Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(16),
+            border: isHovering
+                ? Border.all(color: color, width: 2)
+                : Border.all(color: Colors.grey.withOpacity(0.2), width: 1),
+            boxShadow: isHovering
+                ? [
+                    BoxShadow(
+                      color: color.withOpacity(0.2),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Column header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.08),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(statusIcon, color: color, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
                         status.replaceAll('_', ' '),
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${tasks.length}',
+                        style: TextStyle(
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: color,
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '${tasks.length}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: color,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: tasks.isEmpty
-                        ? Center(
-                            child: Text(
-                              _isFilterActive
-                                  ? 'No tasks for this assignee'
+                    ),
+                  ],
+                ),
+              ),
+
+              // Tasks list - FIXED: Added proper scrolling
+              Expanded(
+                child: tasks.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.inbox_outlined,
+                              size: 48,
+                              color: Colors.grey.shade300,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _showOnlyMyIssues ||
+                                      _isFilterActive ||
+                                      _searchQuery.isNotEmpty
+                                  ? 'No matching tasks'
                                   : 'No tasks',
                               style: TextStyle(
                                 color: Colors.grey.shade400,
                                 fontSize: 14,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                          )
-                        : ListView.builder(
-                            itemCount: tasks.length,
-                            itemBuilder: (_, i) {
-                              final task = tasks[i];
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: tasks.length,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemBuilder: (_, i) {
+                          final task = tasks[i];
 
-                              return Draggable<TaskModel>(
-                                data: task,
-                                onDragStarted: () => _isDragging = true,
-                                onDragEnd: (_) {
-                                  _isDragging = false;
-                                  _edgeHoverStart = null;
-                                },
-                                onDraggableCanceled: (_, __) {
-                                  _isDragging = false;
-                                  _edgeHoverStart = null;
-                                },
+                          return Draggable<TaskModel>(
+                            data: task,
+                            onDragStarted: () => _isDragging = true,
+                            onDragEnd: (_) {
+                              _isDragging = false;
+                              _edgeHoverStart = null;
+                            },
+                            onDraggableCanceled: (_, __) {
+                              _isDragging = false;
+                              _edgeHoverStart = null;
+                            },
+                            feedback: Material(
+                              color: Colors.transparent,
+                              child: SizedBox(
+                                width: kIsWeb
+                                    ? MediaQuery.of(context).size.width / 4 - 60
+                                    : 280,
+                                child: _taskCard(
+                                  context,
+                                  task,
+                                  accentColor: color,
+                                  isDragging: true,
+                                ),
+                              ),
+                            ),
+                            childWhenDragging: Opacity(
+                              opacity: 0.3,
+                              child: _taskCard(context, task),
+                            ),
+                            child: _taskCard(context, task, accentColor: color),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
-                                feedback: Material(
-                                  color: Colors.transparent,
-                                  child: SizedBox(
-                                    width: kIsWeb
-                                        ? MediaQuery.of(context).size.width /
-                                                  4 -
-                                              40
-                                        : 260,
-                                    child: _taskCard(
-                                      context,
-                                      task,
-                                      accentColor: color,
-                                      isDragging: true,
+  Widget _buildMobileFilters(BuildContext context) {
+    return Row(
+      children: [
+        // Filter button for mobile
+        InkWell(
+          onTap: _showAllMembersDialog,
+          child: Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: _isFilterActive
+                  ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                  : (Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade800
+                        : Colors.grey.shade100),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: _isFilterActive
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.grey.shade300,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _isFilterActive ? Icons.filter_alt : Icons.filter_list,
+                  size: 18,
+                  color: _isFilterActive
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.grey.shade600,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _isFilterActive
+                      ? '${_selectedAssigneeUids.length}'
+                      : 'Filter',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: _isFilterActive
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+
+        // "Only My Issues" button - icon only for mobile
+        InkWell(
+          onTap: () {
+            setState(() {
+              _showOnlyMyIssues = !_showOnlyMyIssues;
+              if (_showOnlyMyIssues) {
+                _selectedAssigneeUids.clear();
+                _isFilterActive = false;
+              }
+            });
+          },
+          child: Container(
+            height: 40,
+            width: 40,
+            decoration: BoxDecoration(
+              color: _showOnlyMyIssues
+                  ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                  : (Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade800
+                        : Colors.grey.shade100),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: _showOnlyMyIssues
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.grey.shade300,
+              ),
+            ),
+            child: Icon(
+              _showOnlyMyIssues ? Icons.person : Icons.person_outline,
+              size: 18,
+              color: _showOnlyMyIssues
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.grey.shade600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopFilters(
+    BuildContext context,
+    List members,
+    String? currentUserId,
+  ) {
+    final displayMembers = members.take(5).toList();
+    final remainingCount = members.length - 5;
+
+    return Row(
+      children: [
+        // Member avatars - clickable filters (multi-select) with overlapping effect
+        MouseRegion(
+          onEnter: (_) => setState(() => _isHoveringAvatars = true),
+          onExit: (_) => setState(() => _isHoveringAvatars = false),
+          child: SizedBox(
+            width: _isHoveringAvatars
+                ? displayMembers.length * 42.0 +
+                      (remainingCount > 0 ? 42.0 : 8.0)
+                : displayMembers.length * 28.0 +
+                      (remainingCount > 0 ? 40.0 : 12.0),
+            height: 40,
+            child: Stack(
+              children: [
+                ...displayMembers.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final user = entry.value;
+                  final initials = _getAssigneeName(context, user.uid);
+                  final color = _getAvatarColor(initials);
+                  final isSelected =
+                      _selectedAssigneeUids.contains(user.uid) &&
+                      !_showOnlyMyIssues;
+                  final isCurrentUser = user.uid == currentUserId;
+
+                  return AnimatedPositioned(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    left: _isHoveringAvatars ? index * 42.0 : index * 28.0,
+                    child: Tooltip(
+                      message:
+                          '${user.firstName} ${user.lastName}'.trim() +
+                          (isCurrentUser ? ' (You)' : ''),
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            if (_selectedAssigneeUids.contains(user.uid)) {
+                              _selectedAssigneeUids.remove(user.uid);
+                            } else {
+                              _selectedAssigneeUids.add(user.uid);
+                            }
+                            _isFilterActive = _selectedAssigneeUids.isNotEmpty;
+                            if (_isFilterActive) {
+                              _showOnlyMyIssues = false;
+                            }
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.grey.shade900
+                                  : Colors.white,
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Stack(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: color,
+                                radius: 19,
+                                child: Text(
+                                  initials,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected)
+                                Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: color, width: 3),
+                                  ),
+                                ),
+                              if (isSelected)
+                                Positioned(
+                                  right: -2,
+                                  bottom: -2,
+                                  child: Container(
+                                    width: 16,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 10,
                                     ),
                                   ),
                                 ),
-
-                                childWhenDragging: Opacity(
-                                  opacity: 0.3,
-                                  child: _taskCard(context, task),
-                                ),
-
-                                child: _taskCard(context, task),
-                              );
-                            },
+                            ],
                           ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+
+                if (remainingCount > 0)
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    left: _isHoveringAvatars
+                        ? displayMembers.length * 42.0
+                        : displayMembers.length * 28.0,
+                    child: InkWell(
+                      onTap: _showAllMembersDialog,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.grey,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? Colors.grey.shade900
+                                : Colors.white,
+                            width: 2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            '+$remainingCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 4),
+
+        // "Only My Issues" text button
+        TextButton.icon(
+          onPressed: () {
+            setState(() {
+              _showOnlyMyIssues = !_showOnlyMyIssues;
+              if (_showOnlyMyIssues) {
+                _selectedAssigneeUids.clear();
+                _isFilterActive = false;
+              }
+            });
+          },
+          icon: Icon(
+            _showOnlyMyIssues ? Icons.person : Icons.person_outline,
+            size: 18,
+          ),
+          label: const Text('Only My Issues'),
+          style: TextButton.styleFrom(
+            foregroundColor: _showOnlyMyIssues
+                ? Theme.of(context).colorScheme.primary
+                : Colors.grey.shade600,
+            backgroundColor: _showOnlyMyIssues
+                ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                : Colors.transparent,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(
+                color: _showOnlyMyIssues
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.grey.shade300,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterBar(BuildContext context) {
+    final userVm = context.watch<UserViewModel>();
+    final authVm = context.watch<AuthViewModel>();
+    final currentUserId = authVm.uid;
+
+    final members = userVm.users.toList();
+
+    // Determine if mobile based on width
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Colors.grey.shade900
+            : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Search bar - responsive width
+          SizedBox(
+            width: isMobile ? 210 : 280,
+            child: Container(
+              height: 40,
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey.shade800
+                    : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey.withOpacity(0.2)),
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search tasks...',
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 14,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: Colors.grey.shade500,
+                    size: 20,
+                  ),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            Icons.clear,
+                            color: Colors.grey.shade500,
+                            size: 18,
+                          ),
+                          onPressed: () {
+                            _searchController.clear();
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                ),
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Conditional rendering based on platform
+          if (members.isNotEmpty)
+            isMobile
+                ? _buildMobileFilters(context)
+                : _buildDesktopFilters(context, members, currentUserId),
+
+          const Spacer(),
+
+          // Active filter count badge (only show on desktop when multi-select is active)
+          if (!isMobile &&
+              _isFilterActive &&
+              _selectedAssigneeUids.length > 1) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.filter_alt,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${_selectedAssigneeUids.length} filters',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedAssigneeUids.clear();
+                        _isFilterActive = false;
+                      });
+                    },
+                    child: Icon(
+                      Icons.close,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                 ],
               ),
-            );
-          },
-        ),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ],
       ),
     );
   }
@@ -541,10 +1790,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
         title: Consumer<ProjectViewModel>(
           builder: (context, projectVm, _) {
             final project = projectVm.byId(widget.projectId);
-            return Text(project?.name ?? 'Dashboard');
+            return Text(
+              project?.name ?? 'Dashboard',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            );
           },
         ),
         leading: Builder(
@@ -554,30 +1807,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         actions: [
-          // Filter button
-          Stack(
-            children: [
-              IconButton(
-                tooltip: 'Filter by assignee',
-                icon: const Icon(Icons.filter_list),
-                onPressed: _showAssigneeFilterDialog,
-              ),
-              if (_isFilterActive)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1),
-                    ),
-                  ),
-                ),
-            ],
-          ),
           IconButton(
             tooltip: 'Project details',
             icon: const Icon(Icons.work_outline),
@@ -600,6 +1829,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               }
             },
           ),
+          const SizedBox(width: 8),
         ],
       ),
       drawer: Drawer(
@@ -667,37 +1897,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       body: vm.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : kIsWeb
-          ? Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: sections.map((status) {
-                  return _buildColumn(context, status, vm);
-                }).toList(),
-              ),
-            )
-          : Listener(
-              onPointerMove: (e) => _handleAutoScroll(e.position, context),
-              child: PageView.builder(
-                controller: _pageController,
-                physics: const ClampingScrollPhysics(),
-                padEnds: false,
-                itemCount: sections.length,
-                onPageChanged: (page) {
-                  _currentPage = page;
-                },
-                itemBuilder: (_, index) {
-                  final status = sections[index];
+          : Column(
+              children: [
+                // Filter bar
+                _buildFilterBar(context),
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: _buildColumn(context, status, vm),
-                  );
-                },
-              ),
+                // Main content
+                Expanded(
+                  child: kIsWeb
+                      ? Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: sections.map((status) {
+                              return Expanded(
+                                // Add Expanded here for web columns
+                                child: _buildColumn(context, status, vm),
+                              );
+                            }).toList(),
+                          ),
+                        )
+                      : Listener(
+                          onPointerMove: (e) =>
+                              _handleAutoScroll(e.position, context),
+                          child: PageView.builder(
+                            controller: _pageController,
+                            physics: const ClampingScrollPhysics(),
+                            padEnds: false,
+                            itemCount: sections.length,
+                            onPageChanged: (page) {
+                              _currentPage = page;
+                            },
+                            itemBuilder: (_, index) {
+                              final status = sections[index];
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                child: _buildColumn(context, status, vm),
+                              );
+                            },
+                          ),
+                        ),
+                ),
+              ],
             ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final taskVm = context.read<TaskViewModel>();
           final userVm = context.read<UserViewModel>();
@@ -716,7 +1962,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _showAccessRevokedDialog();
           }
         },
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('New Task'),
+        elevation: 4,
       ),
     );
   }

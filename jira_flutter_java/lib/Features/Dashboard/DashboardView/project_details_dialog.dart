@@ -46,45 +46,15 @@ class ProjectDetailsDialog extends StatelessWidget {
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Project Name Section
-              Text(
-                'Project Name',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: colorScheme.outline),
-                ),
-                child: Text(
-                  project.name,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              if (project.description.isNotEmpty) ...[
+          child: Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Project Name Section
                 Text(
-                  'Description',
+                  'Project Name',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -94,7 +64,6 @@ class ProjectDetailsDialog extends StatelessWidget {
                 const SizedBox(height: 6),
                 Container(
                   width: double.infinity,
-                  constraints: const BoxConstraints(minHeight: 80),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 14,
@@ -105,118 +74,152 @@ class ProjectDetailsDialog extends StatelessWidget {
                     border: Border.all(color: colorScheme.outline),
                   ),
                   child: Text(
-                    project.description.isEmpty ? 'N/A' : project.description,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: project.description.isEmpty
-                          ? colorScheme.onSurfaceVariant.withOpacity(0.5)
-                          : colorScheme.onSurface,
-                      fontStyle: project.description.isEmpty
-                          ? FontStyle.italic
-                          : FontStyle.normal,
+                    project.name,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 16),
-              ],
 
-              // Deadline Section
-              Text(
-                'Deadline',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: colorScheme.outline),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today,
-                      size: 18,
-                      color: colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      DateFormat('MMM dd, yyyy').format(project.deadline),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Project ID Section
-              Text(
-                'Project ID',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: colorScheme.outline),
-                ),
-                child: Text(
-                  project.id.toString(),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Members Section Header
-              Row(
-                children: [
-                  Icon(Icons.group, size: 18, color: colorScheme.primary),
-                  const SizedBox(width: 8),
+                if (project.description.isNotEmpty) ...[
                   Text(
-                    'Members (${orderedMembers.length})',
+                    'Description',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(minHeight: 80),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest.withOpacity(
+                        0.3,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: colorScheme.outline),
+                    ),
+                    child: Text(
+                      project.description.isEmpty ? 'N/A' : project.description,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: project.description.isEmpty
+                            ? colorScheme.onSurfaceVariant.withOpacity(0.5)
+                            : colorScheme.onSurface,
+                        fontStyle: project.description.isEmpty
+                            ? FontStyle.italic
+                            : FontStyle.normal,
+                      ),
+                    ),
+                  ),
 
-              // Members List
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 240),
-                child: ListView.separated(
+                  const SizedBox(height: 16),
+                ],
+
+                // Deadline Section
+                Text(
+                  'Deadline',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: colorScheme.outline),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        size: 18,
+                        color: colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        DateFormat('MMM dd, yyyy').format(project.deadline),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Project ID Section
+                Text(
+                  'Project ID',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: colorScheme.outline),
+                  ),
+                  child: Text(
+                    project.id.toString(),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Members Section Header
+                Row(
+                  children: [
+                    Icon(Icons.group, size: 18, color: colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Members (${orderedMembers.length})',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Members List - Fixed for better mobile scrolling
+                ListView.separated(
                   shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
                   itemCount: orderedMembers.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (_, i) {
@@ -353,8 +356,8 @@ class ProjectDetailsDialog extends StatelessWidget {
                     );
                   },
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -22,7 +22,8 @@ class AppDataSource extends DataSource {
 
   Future<Map<String, String>> get authHeader async => {
     'Content-Type': 'application/json',
-    HttpHeaders.authorizationHeader: 'Bearer ${await TokenStorage.getToken()}',
+    'Authorization':
+        'Bearer ${await TokenStorage.getToken()}',
   };
 
   Future<void> _handle401(http.Response response) async {
