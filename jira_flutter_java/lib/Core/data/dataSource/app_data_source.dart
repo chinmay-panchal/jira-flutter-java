@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:jira_flutter_java/Core/data/dataSource/data_source.dart';
@@ -22,8 +21,7 @@ class AppDataSource extends DataSource {
 
   Future<Map<String, String>> get authHeader async => {
     'Content-Type': 'application/json',
-    'Authorization':
-        'Bearer ${await TokenStorage.getToken()}',
+    'Authorization': 'Bearer ${await TokenStorage.getToken()}',
   };
 
   Future<void> _handle401(http.Response response) async {
@@ -42,7 +40,6 @@ class AppDataSource extends DataSource {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final body = jsonDecode(response.body);
 
-      // 🔥 PROJECT ACCESS REVOKED
       if (response.statusCode == 403 &&
           body is Map &&
           body['code'] == 'PROJECT_ACCESS_REVOKED') {
@@ -125,6 +122,45 @@ class AppDataSource extends DataSource {
     _handleError(response);
   }
 
+  // ✅ EDIT PROJECT (creator only) — name, description, deadline
+  @override
+  Future<ProjectResponse> updateProject({
+    required int projectId,
+    String? name,
+    String? description,
+    DateTime? deadline,
+  }) async {
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (description != null) body['description'] = description;
+    if (deadline != null) body['deadline'] = deadline.toIso8601String();
+
+    final response = await http.patch(
+      Uri.parse('$baseUrl/projects/$projectId'),
+      headers: await authHeader,
+      body: jsonEncode(body),
+    );
+    await _handle401(response);
+    _handleError(response);
+    return ProjectResponse.fromJson(jsonDecode(response.body));
+  }
+
+  // ✅ ADD MEMBER (creator only)
+  @override
+  Future<ProjectResponse> addProjectMember({
+    required int projectId,
+    required String memberUid,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/projects/$projectId/members'),
+      headers: await authHeader,
+      body: jsonEncode({'memberUid': memberUid}),
+    );
+    await _handle401(response);
+    _handleError(response);
+    return ProjectResponse.fromJson(jsonDecode(response.body));
+  }
+
   // ✅ REMOVE MEMBER (creator only)
   @override
   Future<void> removeProjectMember({
@@ -183,6 +219,34 @@ class AppDataSource extends DataSource {
     );
     await _handle401(response);
     _handleError(response);
+  }
+
+  // ✅ EDIT TASK (creator only) — title, description, assignee
+  @override
+  Future<TaskModel> updateTask({
+    required int taskId,
+    String? title,
+    String? description,
+    String? assignedUserUid,
+    bool unassign = false,
+  }) async {
+    final body = <String, dynamic>{};
+    if (title != null) body['title'] = title;
+    if (description != null) body['description'] = description;
+    if (unassign) {
+      body['unassign'] = true;
+    } else if (assignedUserUid != null) {
+      body['assignedUserUid'] = assignedUserUid;
+    }
+
+    final response = await http.patch(
+      Uri.parse('$baseUrl/tasks/$taskId'),
+      headers: await authHeader,
+      body: jsonEncode(body),
+    );
+    await _handle401(response);
+    _handleError(response);
+    return TaskModel.fromJson(jsonDecode(response.body));
   }
 
   /* -------- USER -------- */

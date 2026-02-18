@@ -16,8 +16,16 @@ abstract class DataSource {
   /* -------- PROJECT -------- */
   Future<List<ProjectResponse>> getMyProjects();
   Future<void> createProject(CreateProjectRequest request);
-
-  // ✅ REMOVE MEMBER (creator only)
+  Future<ProjectResponse> updateProject({
+    required int projectId,
+    String? name,
+    String? description,
+    DateTime? deadline,
+  });
+  Future<ProjectResponse> addProjectMember({
+    required int projectId,
+    required String memberUid,
+  });
   Future<void> removeProjectMember({
     required int projectId,
     required String memberUid,
@@ -32,6 +40,13 @@ abstract class DataSource {
     String? assignedUserUid,
   });
   Future<void> updateTaskStatus(int taskId, String status);
+  Future<TaskModel> updateTask({
+    required int taskId,
+    String? title,
+    String? description,
+    String? assignedUserUid,
+    bool unassign = false,
+  });
 
   /* -------- USER -------- */
   Future<List<UserModel>> getAllUsers();
