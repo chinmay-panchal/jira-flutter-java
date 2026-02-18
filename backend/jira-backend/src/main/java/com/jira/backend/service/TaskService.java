@@ -2,6 +2,7 @@ package com.jira.backend.service;
 
 import com.jira.backend.dto.CreateTaskRequest;
 import com.jira.backend.dto.TaskResponse;
+import com.jira.backend.dto.UpdateTaskRequest;
 import com.jira.backend.dto.UpdateTaskStatusRequest;
 import com.jira.backend.entity.Project;
 import com.jira.backend.entity.Task;
@@ -33,21 +34,33 @@ public class TaskService {
         this.userRepository = userRepository;
     }
 
-    public TaskResponse createTask(CreateTaskRequest request) {
-        String uid = SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getName();
+    // ─── helpers ────────────────────────────────────────────────────────────────
 
-        User currentUser = userRepository.findByUid(uid)
+    private String currentUid() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
+    }
+
+    private User currentUser() {
+        return userRepository.findByUid(currentUid())
                 .orElseThrow(() -> new RuntimeException("User not found"));
+    }
 
+    /** Throws if the current user is NOT the project creator. */
+    private void requireCreator(Project project, User user) {
+        if (!project.getCreator().getId().equals(user.getId())) {
+            throw new RuntimeException("Only the project creator can perform this action");
+        }
+    }
+
+    // ─── existing ────────────────────────────────────────────────────────────────
+
+    public TaskResponse createTask(CreateTaskRequest request) {
+        User currentUser = currentUser();
         final Long currentUserId = currentUser.getId();
 
         Project project = projectRepository.findById(request.getProjectId())
                 .orElseThrow(() -> new RuntimeException("Project not found"));
 
-        // ✅ CURRENT USER MUST BE PROJECT MEMBER
         boolean isCurrentUserMember = project.getMembers()
                 .stream()
                 .anyMatch(u -> u.getId().equals(currentUserId));
@@ -62,7 +75,6 @@ public class TaskService {
                     .orElseThrow(() -> new RuntimeException("Assigned user not found"));
 
             final Long assignedUserId = assignedUser.getId();
-
             boolean isAssignedUserMember = project.getMembers()
                     .stream()
                     .anyMatch(u -> u.getId().equals(assignedUserId));
@@ -80,19 +92,11 @@ public class TaskService {
                 .assignedTo(assignedUser)
                 .build();
 
-        Task saved = taskRepository.save(task);
-        return mapToResponse(saved);
+        return mapToResponse(taskRepository.save(task));
     }
 
     public List<TaskResponse> getTasksByProject(Long projectId) {
-        String uid = SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getName();
-
-        User currentUser = userRepository.findByUid(uid)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
+        User currentUser = currentUser();
         final Long currentUserId = currentUser.getId();
 
         Project project = projectRepository.findById(projectId)
@@ -102,9 +106,7 @@ public class TaskService {
                 .stream()
                 .anyMatch(u -> u.getId().equals(currentUserId));
 
-        if (!isMember) {
-            throw new RuntimeException("You are no longer a member of this project");
-        }
+        if (!isMember) throw new RuntimeException("You are no longer a member of this project");
 
         return taskRepository.findByProjectId(projectId)
                 .stream()
@@ -113,14 +115,7 @@ public class TaskService {
     }
 
     public TaskResponse updateTaskStatus(Long taskId, UpdateTaskStatusRequest request) {
-        String uid = SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getName();
-
-        User currentUser = userRepository.findByUid(uid)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
+        User currentUser = currentUser();
         final Long currentUserId = currentUser.getId();
 
         Task task = taskRepository.findById(taskId)
@@ -132,15 +127,59 @@ public class TaskService {
                 .stream()
                 .anyMatch(u -> u.getId().equals(currentUserId));
 
-        if (!isMember) {
-            throw new RuntimeException("You are no longer a member of this project");
-        }
+        if (!isMember) throw new RuntimeException("You are no longer a member of this project");
 
         task.setStatus(request.getStatus());
-        Task updated = taskRepository.save(task);
-
-        return mapToResponse(updated);
+        return mapToResponse(taskRepository.save(task));
     }
+
+    // ─── new: edit task (creator only) ───────────────────────────────────────────
+
+    /**
+     * PATCH /tasks/{taskId}
+     * Edit title, description and/or assignee. Only the project creator can do this.
+     * To explicitly unassign, set unassign = true in the request body.
+     */
+    public TaskResponse updateTask(Long taskId, UpdateTaskRequest request) {
+        User currentUser = currentUser();
+
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        Project project = task.getProject();
+        requireCreator(project, currentUser);
+
+        if (request.getTitle() != null && !request.getTitle().isBlank()) {
+            task.setTitle(request.getTitle());
+        }
+
+        if (request.getDescription() != null) {
+            task.setDescription(request.getDescription());
+        }
+
+        if (request.isUnassign()) {
+            // explicitly clear the assignee
+            task.setAssignedTo(null);
+        } else if (request.getAssignedUserUid() != null) {
+            User newAssignee = userRepository.findByUid(request.getAssignedUserUid())
+                    .orElseThrow(() -> new RuntimeException("Assigned user not found"));
+
+            final Long assigneeId = newAssignee.getId();
+            boolean isAssigneeMember = project.getMembers()
+                    .stream()
+                    .anyMatch(u -> u.getId().equals(assigneeId));
+
+            if (!isAssigneeMember) {
+                throw new RuntimeException("Assigned user is not a project member");
+            }
+
+            task.setAssignedTo(newAssignee);
+        }
+
+        return mapToResponse(taskRepository.save(task));
+    }
+
+    // ─── mapper ──────────────────────────────────────────────────────────────────
 
     private TaskResponse mapToResponse(Task task) {
         return TaskResponse.builder()

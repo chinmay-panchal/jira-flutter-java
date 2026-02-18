@@ -82,7 +82,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final user = userVm.users.firstWhereOrNull((u) => u.uid == uid);
 
     if (user == null) {
-      return 'Unknown';
+      return 'N/A';
     }
 
     // Get initials from first and last name
@@ -893,9 +893,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onTap: isDragging
           ? null
           : () {
+              final project = context.read<ProjectViewModel>().byId(
+                task.projectId,
+              );
+              if (project == null) return;
               showDialog(
                 context: context,
-                builder: (_) => TaskDetailDialog(task: task),
+                builder: (_) => TaskDetailDialog(
+                  task: task,
+                  project: project,
+                  taskVm: context.read<TaskViewModel>(),
+                ),
               );
             },
       borderRadius: BorderRadius.circular(12),
@@ -1814,7 +1822,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final userVm = context.read<UserViewModel>();
 
               try {
-                await userVm.loadUsers();
                 await userVm.loadProjectMembers(widget.projectId);
 
                 if (!mounted) return;

@@ -2,6 +2,7 @@ package com.jira.backend.controller;
 
 import com.jira.backend.dto.CreateTaskRequest;
 import com.jira.backend.dto.TaskResponse;
+import com.jira.backend.dto.UpdateTaskRequest;
 import com.jira.backend.dto.UpdateTaskStatusRequest;
 import com.jira.backend.service.TaskService;
 import org.springframework.web.bind.annotation.*;
@@ -35,5 +36,14 @@ public class TaskController {
             @RequestBody UpdateTaskStatusRequest request
     ) {
         return taskService.updateTaskStatus(taskId, request);
+    }
+
+    // ✅ EDIT TASK (creator only) — title, description, assignee
+    @PatchMapping("/{taskId}")
+    public TaskResponse updateTask(
+            @PathVariable Long taskId,
+            @RequestBody UpdateTaskRequest request
+    ) {
+        return taskService.updateTask(taskId, request);
     }
 }

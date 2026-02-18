@@ -9,12 +9,14 @@ class MemberSelectDialog extends StatefulWidget {
   final Set<String> initialSelected;
   final bool singleSelect;
   final bool hideCurrentUser;
+  final List<UserModel>? overrideUsers;
 
   const MemberSelectDialog({
     super.key,
     required this.initialSelected,
     this.singleSelect = false,
     this.hideCurrentUser = false,
+    this.overrideUsers,
   });
 
   @override
@@ -24,11 +26,15 @@ class MemberSelectDialog extends StatefulWidget {
 class _MemberSelectDialogState extends State<MemberSelectDialog> {
   final searchCtrl = TextEditingController();
   late Set<String> selectedUids;
+  List<UserModel> _displayUsers = [];
 
   @override
   void initState() {
     super.initState();
     selectedUids = {...widget.initialSelected};
+    if (widget.overrideUsers != null) {
+      _displayUsers = List.of(widget.overrideUsers!);
+    }
   }
 
   @override
@@ -37,15 +43,32 @@ class _MemberSelectDialogState extends State<MemberSelectDialog> {
     super.dispose();
   }
 
+  void _onSearch(String q, UserViewModel userVm) {
+    if (widget.overrideUsers != null) {
+      final query = q.toLowerCase().trim();
+      setState(() {
+        _displayUsers = widget.overrideUsers!.where((u) {
+          final fullName = '${u.firstName} ${u.lastName}'.toLowerCase();
+          return fullName.contains(query) ||
+              u.email.toLowerCase().contains(query);
+        }).toList();
+      });
+    } else {
+      userVm.search(q);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userVm = context.watch<UserViewModel>();
     final authVm = context.read<AuthViewModel>();
     final colorScheme = Theme.of(context).colorScheme;
 
-    final List<UserModel> users = widget.hideCurrentUser && authVm.uid != null
-        ? userVm.users.where((u) => u.uid != authVm.uid).toList()
-        : userVm.users;
+    final List<UserModel> baseUsers = widget.overrideUsers != null
+        ? _displayUsers
+        : (widget.hideCurrentUser && authVm.uid != null
+              ? userVm.users.where((u) => u.uid != authVm.uid).toList()
+              : userVm.users);
 
     return Dialog(
       shape: RoundedRectangleBorder(
@@ -66,13 +89,13 @@ class _MemberSelectDialogState extends State<MemberSelectDialog> {
                   hintText: 'Search members',
                   prefixIcon: Icon(Icons.search),
                 ),
-                onChanged: userVm.search,
+                onChanged: (q) => _onSearch(q, userVm),
               ),
             ),
             Expanded(
-              child: userVm.isLoading
+              child: userVm.isLoading && widget.overrideUsers == null
                   ? const Center(child: CircularProgressIndicator())
-                  : users.isEmpty
+                  : baseUsers.isEmpty
                   ? Center(
                       child: Text(
                         'No members found',
@@ -82,9 +105,9 @@ class _MemberSelectDialogState extends State<MemberSelectDialog> {
                       ),
                     )
                   : ListView.builder(
-                      itemCount: users.length,
+                      itemCount: baseUsers.length,
                       itemBuilder: (_, i) {
-                        final UserModel u = users[i];
+                        final UserModel u = baseUsers[i];
                         final selected = selectedUids.contains(u.uid);
                         final isYou = u.uid == authVm.uid;
 
@@ -104,9 +127,7 @@ class _MemberSelectDialogState extends State<MemberSelectDialog> {
                               setState(() {
                                 if (widget.singleSelect) {
                                   selectedUids.clear();
-                                  if (v == true) {
-                                    selectedUids.add(u.uid);
-                                  }
+                                  if (v == true) selectedUids.add(u.uid);
                                 } else {
                                   v == true
                                       ? selectedUids.add(u.uid)

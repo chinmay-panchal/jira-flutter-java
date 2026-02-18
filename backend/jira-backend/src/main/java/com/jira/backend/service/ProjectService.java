@@ -1,7 +1,6 @@
 package com.jira.backend.service;
 
-import com.jira.backend.dto.CreateProjectRequest;
-import com.jira.backend.dto.ProjectResponse;
+import com.jira.backend.dto.*;
 import com.jira.backend.entity.Project;
 import com.jira.backend.entity.User;
 import com.jira.backend.repository.ProjectRepository;
@@ -26,17 +25,37 @@ public class ProjectService {
         this.userRepository = userRepository;
     }
 
-    public ProjectResponse createProject(CreateProjectRequest request) {
-        String creatorUid = SecurityContextHolder.getContext()
-                .getAuthentication()
-                .getName();
+    // ─── helpers ────────────────────────────────────────────────────────────────
 
-        User creator = userRepository.findByUid(creatorUid)
+    private String currentUid() {
+        return SecurityContextHolder.getContext().getAuthentication().getName();
+    }
+
+    private User currentUser() {
+        return userRepository.findByUid(currentUid())
                 .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    private Project requireProject(Long projectId) {
+        return projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+    }
+
+    /** Throws if the current user is NOT the project creator. */
+    private void requireCreator(Project project, User user) {
+        if (!project.getCreator().getId().equals(user.getId())) {
+            throw new RuntimeException("Only the project creator can perform this action");
+        }
+    }
+
+    // ─── existing ────────────────────────────────────────────────────────────────
+
+    public ProjectResponse createProject(CreateProjectRequest request) {
+        User creator = currentUser();
 
         List<User> members = userRepository.findByUidIn(request.getMemberUids());
 
-        if (members.stream().noneMatch(u -> u.getUid().equals(creatorUid))) {
+        if (members.stream().noneMatch(u -> u.getUid().equals(creator.getUid()))) {
             members.add(creator);
         }
 
@@ -52,13 +71,7 @@ public class ProjectService {
     }
 
     public List<ProjectResponse> getMyProjects() {
-        String uid = SecurityContextHolder.getContext()
-                .getAuthentication()
-                .getName();
-
-        User user = userRepository.findByUid(uid)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
+        User user = currentUser();
         return projectRepository.findByMembers_Id(user.getId())
                 .stream()
                 .map(this::map)
@@ -66,53 +79,83 @@ public class ProjectService {
     }
 
     public List<User> getProjectMembers(Long projectId) {
-        String uid = SecurityContextHolder.getContext()
-                .getAuthentication()
-                .getName();
-
-        User requester = userRepository.findByUid(uid)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Project not found"));
+        User requester = currentUser();
+        Project project = requireProject(projectId);
 
         boolean isMember = project.getMembers()
                 .stream()
                 .anyMatch(u -> u.getId().equals(requester.getId()));
 
-        if (!isMember) {
-            throw new RuntimeException("Access denied");
-        }
+        if (!isMember) throw new RuntimeException("Access denied");
 
         return project.getMembers();
     }
 
     // ✅ REMOVE MEMBER (creator only)
     public void removeMember(Long projectId, String memberUid, String currentUserUid) {
-
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Project not found"));
-
+        Project project = requireProject(projectId);
         User currentUser = userRepository.findByUid(currentUserUid)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (!project.getCreator().getId().equals(currentUser.getId())) {
-            throw new RuntimeException("Only creator can remove members");
-        }
+        requireCreator(project, currentUser);
 
         if (project.getCreator().getUid().equals(memberUid)) {
             throw new RuntimeException("Creator cannot be removed");
         }
 
-        boolean removed = project.getMembers()
-                .removeIf(u -> u.getUid().equals(memberUid));
-
-        if (!removed) {
-            throw new RuntimeException("User is not a member of this project");
-        }
+        boolean removed = project.getMembers().removeIf(u -> u.getUid().equals(memberUid));
+        if (!removed) throw new RuntimeException("User is not a member of this project");
 
         projectRepository.save(project);
     }
+
+    // ─── new edit endpoints (creator only) ───────────────────────────────────────
+
+    /**
+     * PATCH /projects/{projectId}
+     * Edit name, description and/or deadline. Only non-null fields are updated.
+     */
+    public ProjectResponse updateProject(Long projectId, UpdateProjectRequest request) {
+        User user = currentUser();
+        Project project = requireProject(projectId);
+        requireCreator(project, user);
+
+        if (request.getName() != null && !request.getName().isBlank()) {
+            project.setName(request.getName());
+        }
+        if (request.getDescription() != null) {
+            project.setDescription(request.getDescription());
+        }
+        if (request.getDeadline() != null) {
+            project.setDeadline(request.getDeadline());
+        }
+
+        return map(projectRepository.save(project));
+    }
+
+    /**
+     * POST /projects/{projectId}/members
+     * Add a member by UID. Only the creator can do this.
+     */
+    public ProjectResponse addMember(Long projectId, AddProjectMemberRequest request) {
+        User user = currentUser();
+        Project project = requireProject(projectId);
+        requireCreator(project, user);
+
+        User newMember = userRepository.findByUid(request.getMemberUid())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        boolean alreadyMember = project.getMembers()
+                .stream()
+                .anyMatch(u -> u.getId().equals(newMember.getId()));
+
+        if (alreadyMember) throw new RuntimeException("User is already a member of this project");
+
+        project.getMembers().add(newMember);
+        return map(projectRepository.save(project));
+    }
+
+    // ─── mapper ──────────────────────────────────────────────────────────────────
 
     private ProjectResponse map(Project project) {
         return ProjectResponse.builder()

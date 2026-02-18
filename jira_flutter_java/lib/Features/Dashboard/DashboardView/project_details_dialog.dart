@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jira_flutter_java/Features/User/UserModel/user_model.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -6,11 +7,160 @@ import 'package:jira_flutter_java/Features/Project/ProjectModel/project_model.da
 import 'package:jira_flutter_java/Features/Project/ProjectViewModel/project_view_model.dart';
 import 'package:jira_flutter_java/Features/User/UserViewModel/user_view_model.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthViewModel/auth_view_model.dart';
+import 'package:jira_flutter_java/Features/Project/ProjectView/member_select_dialog.dart';
 
-class ProjectDetailsDialog extends StatelessWidget {
+class ProjectDetailsDialog extends StatefulWidget {
   final int projectId;
 
   const ProjectDetailsDialog({super.key, required this.projectId});
+
+  @override
+  State<ProjectDetailsDialog> createState() => _ProjectDetailsDialogState();
+}
+
+class _ProjectDetailsDialogState extends State<ProjectDetailsDialog> {
+  bool _isEditing = false;
+  bool _isSaving = false;
+
+  late TextEditingController _nameCtrl;
+  late TextEditingController _descCtrl;
+  DateTime? _selectedDeadline;
+
+  bool _isAddingMember = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController();
+    _descCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  void _enterEditMode(ProjectModel project) {
+    _nameCtrl.text = project.name;
+    _descCtrl.text = project.description;
+    _selectedDeadline = project.deadline;
+    setState(() => _isEditing = true);
+  }
+
+  void _cancelEdit() {
+    setState(() => _isEditing = false);
+  }
+
+  Future<void> _pickDeadline(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDeadline ?? DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) setState(() => _selectedDeadline = picked);
+  }
+
+  Future<void> _save(BuildContext context, ProjectModel project) async {
+    final projectVm = context.read<ProjectViewModel>();
+
+    final newName = _nameCtrl.text.trim();
+    if (newName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Project name cannot be empty')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      await projectVm.updateProject(
+        projectId: project.id,
+        name: newName != project.name ? newName : null,
+        description: _descCtrl.text.trim() != project.description
+            ? _descCtrl.text.trim()
+            : null,
+        deadline:
+            _selectedDeadline != null && _selectedDeadline != project.deadline
+            ? _selectedDeadline
+            : null,
+      );
+
+      if (context.mounted) {
+        setState(() {
+          _isEditing = false;
+          _isSaving = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Project updated successfully')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  /// Opens MemberSelectDialog showing only users NOT already in the project.
+  /// Multi-select, same as CreateProjectDialog.
+  Future<void> _openAddMemberPicker(
+    BuildContext context,
+    ProjectModel project,
+  ) async {
+    final userVm = context.read<UserViewModel>();
+    final fetchedAllUsers = await userVm.fetchAllUsers();
+    if (!context.mounted) return;
+
+    final currentMemberUids = Set<String>.from(project.members);
+
+    final eligibleUsers = fetchedAllUsers
+        .where((u) => !currentMemberUids.contains(u.uid))
+        .toList();
+
+    Set<String>? result;
+
+    result = await showDialog<Set<String>>(
+      context: context,
+      builder: (_) => MemberSelectDialog(
+        initialSelected: const {},
+        hideCurrentUser: false,
+        overrideUsers: eligibleUsers,
+      ),
+    );
+
+    if (result == null || result.isEmpty) return;
+    if (!context.mounted) return;
+
+    final projectVm = context.read<ProjectViewModel>();
+    setState(() => _isAddingMember = true);
+
+    try {
+      for (final uid in result) {
+        await projectVm.addMember(projectId: project.id, memberUid: uid);
+      }
+      if (context.mounted) {
+        await userVm.refreshProjectMembers(project.id);
+        setState(() => _isAddingMember = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Member(s) added successfully')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        setState(() => _isAddingMember = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +169,7 @@ class ProjectDetailsDialog extends StatelessWidget {
     final authVm = context.watch<AuthViewModel>();
     final colorScheme = Theme.of(context).colorScheme;
 
-    final ProjectModel? project = projectVm.byId(projectId);
+    final ProjectModel? project = projectVm.byId(widget.projectId);
 
     if (project == null) {
       return const AlertDialog(
@@ -42,7 +192,22 @@ class ProjectDetailsDialog extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: colorScheme.outline, width: 1),
       ),
-      title: const Text('Project Details'),
+      title: Row(
+        children: [
+          const Expanded(child: Text('Project Details')),
+          if (isCreator)
+            IconButton(
+              tooltip: _isEditing ? 'Cancel editing' : 'Edit project',
+              icon: Icon(
+                _isEditing ? Icons.close : Icons.edit_outlined,
+                size: 20,
+              ),
+              onPressed: _isEditing
+                  ? _cancelEdit
+                  : () => _enterEditMode(project),
+            ),
+        ],
+      ),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -52,154 +217,67 @@ class ProjectDetailsDialog extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Project Name Section
-                Text(
-                  'Project Name',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                // ── Name ──────────────────────────────────────────────────────
+                _label(context, 'Project Name'),
                 const SizedBox(height: 6),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: colorScheme.outline),
-                  ),
-                  child: Text(
-                    project.name,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
+                _isEditing
+                    ? _inputField(
+                        controller: _nameCtrl,
+                        context: context,
+                        hint: 'Project name',
+                      )
+                    : _readonlyBox(
+                        context,
+                        project.name,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
 
                 const SizedBox(height: 16),
 
-                if (project.description.isNotEmpty) ...[
-                  Text(
-                    'Description',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    width: double.infinity,
-                    constraints: const BoxConstraints(minHeight: 80),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest.withOpacity(
-                        0.3,
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: colorScheme.outline),
-                    ),
-                    child: Text(
-                      project.description.isEmpty ? 'N/A' : project.description,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: project.description.isEmpty
-                            ? colorScheme.onSurfaceVariant.withOpacity(0.5)
-                            : colorScheme.onSurface,
-                        fontStyle: project.description.isEmpty
-                            ? FontStyle.italic
-                            : FontStyle.normal,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-                ],
-
-                // Deadline Section
-                Text(
-                  'Deadline',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                // ── Description ───────────────────────────────────────────────
+                _label(context, 'Description'),
                 const SizedBox(height: 6),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: colorScheme.outline),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.calendar_today,
-                        size: 18,
-                        color: colorScheme.primary,
+                _isEditing
+                    ? _inputField(
+                        controller: _descCtrl,
+                        context: context,
+                        hint: 'Project description (optional)',
+                        maxLines: 3,
+                        minHeight: 80,
+                      )
+                    : _readonlyBox(
+                        context,
+                        project.description.isNotEmpty
+                            ? project.description
+                            : 'N/A',
+                        minHeight: 80,
+                        italic: project.description.isEmpty,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
+
+                const SizedBox(height: 16),
+
+                // ── Deadline ──────────────────────────────────────────────────
+                _label(context, 'Deadline'),
+                const SizedBox(height: 6),
+                _isEditing
+                    ? _deadlinePicker(context, colorScheme)
+                    : _readonlyBox(
+                        context,
                         DateFormat('MMM dd, yyyy').format(project.deadline),
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        icon: Icons.calendar_today,
                       ),
-                    ],
-                  ),
-                ),
 
                 const SizedBox(height: 16),
 
-                // Project ID Section
-                Text(
-                  'Project ID',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                // ── Project ID ────────────────────────────────────────────────
+                _label(context, 'Project ID'),
                 const SizedBox(height: 6),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: colorScheme.outline),
-                  ),
-                  child: Text(
-                    project.id.toString(),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
+                _readonlyBox(context, project.id.toString()),
 
                 const SizedBox(height: 16),
 
-                // Members Section Header
+                // ── Members header ────────────────────────────────────────────
                 Row(
                   children: [
                     Icon(Icons.group, size: 18, color: colorScheme.primary),
@@ -212,11 +290,36 @@ class ProjectDetailsDialog extends StatelessWidget {
                         color: colorScheme.onSurfaceVariant,
                       ),
                     ),
+                    const Spacer(),
+                    // Add Member button — creator only, always visible
+                    if (isCreator)
+                      _isAddingMember
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : TextButton.icon(
+                              onPressed: () =>
+                                  _openAddMemberPicker(context, project),
+                              icon: const Icon(
+                                Icons.person_add_outlined,
+                                size: 16,
+                              ),
+                              label: const Text('Add'),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
                   ],
                 ),
                 const SizedBox(height: 12),
 
-                // Members List - Fixed for better mobile scrolling
+                // ── Member list ───────────────────────────────────────────────
                 ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -267,7 +370,6 @@ class ProjectDetailsDialog extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 12),
-
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -335,7 +437,6 @@ class ProjectDetailsDialog extends StatelessWidget {
                               ],
                             ),
                           ),
-
                           if (isCreator && !memberIsCreator)
                             IconButton(
                               icon: const Icon(Icons.remove_circle_outline),
@@ -343,12 +444,18 @@ class ProjectDetailsDialog extends StatelessWidget {
                               tooltip: 'Remove member',
                               iconSize: 20,
                               onPressed: () async {
+                                final projectVm = context
+                                    .read<ProjectViewModel>();
+                                final userVm = context.read<UserViewModel>();
                                 await projectVm.removeMember(
                                   projectId: project.id,
                                   memberUid: uid,
                                 );
-
-                                await projectVm.loadProjects();
+                                if (context.mounted) {
+                                  await userVm.refreshProjectMembers(
+                                    project.id,
+                                  );
+                                }
                               },
                             ),
                         ],
@@ -362,17 +469,159 @@ class ProjectDetailsDialog extends StatelessWidget {
         ),
       ),
       actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      actions: [
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context),
-          style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
+      actions: _isEditing
+          ? [
+              TextButton(
+                onPressed: _isSaving ? null : _cancelEdit,
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton.icon(
+                onPressed: _isSaving ? null : () => _save(context, project),
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check, size: 18),
+                label: const Text('Save'),
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ]
+          : [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text('Close'),
+              ),
+            ],
+    );
+  }
+
+  Widget _label(BuildContext context, String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+
+  Widget _readonlyBox(
+    BuildContext context,
+    String text, {
+    IconData? icon,
+    double? minHeight,
+    double fontSize = 14,
+    FontWeight fontWeight = FontWeight.w500,
+    bool italic = false,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final style = TextStyle(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+      color: italic ? colorScheme.onSurfaceVariant.withOpacity(0.6) : null,
+    );
+    return Container(
+      width: double.infinity,
+      constraints: minHeight != null
+          ? BoxConstraints(minHeight: minHeight)
+          : null,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outline),
+      ),
+      child: icon != null
+          ? Row(
+              children: [
+                Icon(icon, size: 18, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(text, style: style),
+              ],
+            )
+          : Text(text, style: style),
+    );
+  }
+
+  Widget _inputField({
+    required TextEditingController controller,
+    required BuildContext context,
+    required String hint,
+    int maxLines = 1,
+    double? minHeight,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      constraints: minHeight != null
+          ? BoxConstraints(minHeight: minHeight)
+          : null,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.primary),
+      ),
+      child: TextField(
+        controller: controller,
+        maxLines: maxLines,
+        style: const TextStyle(fontSize: 14),
+        decoration: InputDecoration(
+          hintText: hint,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 12,
           ),
-          child: const Text('Close'),
+          border: InputBorder.none,
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _deadlinePicker(BuildContext context, ColorScheme colorScheme) {
+    return InkWell(
+      onTap: () => _pickDeadline(context),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colorScheme.primary),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.calendar_today, size: 18, color: colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              _selectedDeadline != null
+                  ? DateFormat('MMM dd, yyyy').format(_selectedDeadline!)
+                  : 'Pick a date',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: _selectedDeadline != null
+                    ? null
+                    : colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const Spacer(),
+            Icon(Icons.edit_outlined, size: 16, color: colorScheme.primary),
+          ],
+        ),
+      ),
     );
   }
 }

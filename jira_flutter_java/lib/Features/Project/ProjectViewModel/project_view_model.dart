@@ -52,18 +52,40 @@ class ProjectViewModel extends ChangeNotifier {
         deadline: form.lastDate,
       ),
     );
-
     await loadProjects();
   }
 
-  // ✅ REMOVE MEMBER FROM PROJECT (creator only)
+  // ✅ EDIT PROJECT (creator only) — name, description, deadline
+  Future<void> updateProject({
+    required int projectId,
+    String? name,
+    String? description,
+    DateTime? deadline,
+  }) async {
+    await repo.updateProject(
+      projectId: projectId,
+      name: name,
+      description: description,
+      deadline: deadline,
+    );
+    await loadProjects();
+  }
+
+  // ✅ ADD MEMBER (creator only)
+  Future<void> addMember({
+    required int projectId,
+    required String memberUid,
+  }) async {
+    await repo.addProjectMember(projectId: projectId, memberUid: memberUid);
+    await loadProjects();
+  }
+
+  // ✅ REMOVE MEMBER (creator only)
   Future<void> removeMember({
     required int projectId,
     required String memberUid,
   }) async {
     await repo.removeProjectMember(projectId: projectId, memberUid: memberUid);
-
-    // refresh local state
     await loadProjects();
   }
 }
