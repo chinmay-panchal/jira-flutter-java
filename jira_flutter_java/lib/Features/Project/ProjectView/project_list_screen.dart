@@ -21,9 +21,8 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
   @override
   void initState() {
     super.initState();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ProjectViewModel>().loadProjects();
+      context.read<ProjectViewModel>().init();
     });
   }
 

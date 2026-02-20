@@ -13,6 +13,9 @@ import com.jira.backend.repository.TaskRepository;
 import com.jira.backend.repository.UserRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import com.jira.backend.websocket.model.ProjectEvent;
+import com.jira.backend.websocket.service.ProjectEventService;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,14 +27,19 @@ public class TaskService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
 
+    private final ProjectEventService projectEventService;
+
+
     public TaskService(
             TaskRepository taskRepository,
             ProjectRepository projectRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            ProjectEventService projectEventService
     ) {
         this.taskRepository = taskRepository;
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
+        this.projectEventService = projectEventService;
     }
 
     // ─── helpers ────────────────────────────────────────────────────────────────
@@ -196,5 +204,110 @@ public class TaskService {
                 .createdAt(task.getCreatedAt())
                 .updatedAt(task.getUpdatedAt())
                 .build();
+    }
+
+    // ─── SOCKET entry points ──────────────────────────────────────────────────────
+
+    @Transactional
+    public void createTaskForUser(CreateTaskRequest request, String uid) {
+        User creator = userRepository.findByUid(uid)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Project project = projectRepository.findById(request.getProjectId())
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+
+        boolean isMember = project.getMembers().stream()
+                .anyMatch(u -> u.getId().equals(creator.getId()));
+        if (!isMember) throw new RuntimeException("Not a member");
+
+        User assignedUser = null;
+        if (request.getAssignedUserUid() != null) {
+            assignedUser = userRepository.findByUid(request.getAssignedUserUid())
+                    .orElseThrow(() -> new RuntimeException("Assigned user not found"));
+            final Long assigneeId = assignedUser.getId();
+            boolean isAssigneeMember = project.getMembers().stream()
+                    .anyMatch(u -> u.getId().equals(assigneeId));
+            if (!isAssigneeMember) throw new RuntimeException("Assignee not a member");
+        }
+
+        Task task = Task.builder()
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .status(TaskStatus.TODO)
+                .project(project)
+                .assignedTo(assignedUser)
+                .build();
+
+        TaskResponse response = mapToResponse(taskRepository.save(task));
+
+        List<String> memberUids = project.getMembers().stream()
+                .map(User::getUid).collect(Collectors.toList());
+
+        projectEventService.sendToMembers(
+                memberUids, ProjectEvent.Type.TASK_CREATED, response);
+    }
+
+    @Transactional
+    public void updateTaskStatusForUser(Long taskId, String status, String uid) {
+        User user = userRepository.findByUid(uid)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        Project project = task.getProject();
+        boolean isMember = project.getMembers().stream()
+                .anyMatch(u -> u.getId().equals(user.getId()));
+        if (!isMember) throw new RuntimeException("Not a member");
+
+        task.setStatus(TaskStatus.valueOf(status));
+        taskRepository.save(task);
+
+        List<String> memberUids = project.getMembers().stream()
+                .map(User::getUid).collect(Collectors.toList());
+
+        java.util.Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("taskId", taskId);
+        payload.put("status", status);
+        payload.put("projectId", project.getId());
+
+        projectEventService.sendToMembers(
+                memberUids, ProjectEvent.Type.TASK_STATUS_UPDATED, payload);
+    }
+
+    @Transactional
+    public void updateTaskForUser(Long taskId, UpdateTaskRequest request, String uid) {
+        User user = userRepository.findByUid(uid)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        Project project = task.getProject();
+        if (!project.getCreator().getUid().equals(uid)) {
+            throw new RuntimeException("Only the project creator can edit tasks");
+        }
+
+        if (request.getTitle() != null && !request.getTitle().isBlank()) {
+            task.setTitle(request.getTitle());
+        }
+        if (request.getDescription() != null) {
+            task.setDescription(request.getDescription());
+        }
+        if (request.isUnassign()) {
+            task.setAssignedTo(null);
+        } else if (request.getAssignedUserUid() != null) {
+            User newAssignee = userRepository.findByUid(request.getAssignedUserUid())
+                    .orElseThrow(() -> new RuntimeException("Assigned user not found"));
+            task.setAssignedTo(newAssignee);
+        }
+
+        TaskResponse response = mapToResponse(taskRepository.save(task));
+
+        List<String> memberUids = project.getMembers().stream()
+                .map(User::getUid).collect(Collectors.toList());
+
+        projectEventService.sendToMembers(
+                memberUids, ProjectEvent.Type.TASK_UPDATED, response);
     }
 }

@@ -1,10 +1,9 @@
 package com.jira.backend.dto;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 
-@Getter
-@Setter
+@Data
 public class AddProjectMemberRequest {
+    private Long projectId; // needed for socket routing
     private String memberUid;
 }

@@ -1,5 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:jira_flutter_java/Core/socket/project_socket_service.dart';
 import 'package:jira_flutter_java/Core/theme/theme_provider.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthViewModel/auth_view_model.dart';
 import 'package:jira_flutter_java/Features/Dashboard/DashboardView/project_details_dialog.dart';
@@ -33,6 +35,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _initialPageSet = false;
   int? _currentPage;
 
+  double get _screenWidth => MediaQuery.of(context).size.width;
+  bool get _isMobile => _screenWidth < 600;
+  bool get _isTablet => _screenWidth >= 600 && _screenWidth < 1000;
+  bool get _isDesktop => _screenWidth >= 1000;
+
   // Filter state
   Set<String> _selectedAssigneeUids = {};
   bool _isFilterActive = false;
@@ -41,6 +48,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isHoveringAvatars = false; // For avatar hover effect
 
   final sections = const ['TODO', 'IN_PROGRESS', 'QA', 'DONE'];
+  void _handleSocketEvent(ProjectSocketEvent event) {
+    if (event.type == ProjectEventType.memberRemoved) {
+      final projectId = (event.payload['projectId'] as num?)?.toInt();
+      final memberUid = event.payload['memberUid'] as String?;
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+
+      if (projectId == widget.projectId && memberUid == currentUid) {
+        if (mounted) _showAccessRevokedDialog();
+      }
+
+      // Refresh member list for avatar filters
+      if (projectId == widget.projectId && mounted) {
+        context.read<UserViewModel>().refreshProjectMembers(widget.projectId);
+      }
+    }
+
+    if (event.type == ProjectEventType.memberAdded) {
+      final projectId = (event.payload['projectId'] as num?)?.toInt();
+      if (projectId == widget.projectId && mounted) {
+        context.read<UserViewModel>().refreshProjectMembers(widget.projectId);
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -48,6 +78,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _pageController = PageController(viewportFraction: 0.78);
     _pageController.addListener(_onPageControllerChange);
     _searchController.addListener(_onSearchChanged);
+
+    // Listen for member removal
+    ProjectSocketService().addListener(_handleSocketEvent);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final vm = context.read<TaskViewModel>();
@@ -134,7 +167,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final isMobile = MediaQuery.of(context).size.width < 600;
     final allMembers = userVm.users.toList();
-    final members = isMobile ? allMembers : allMembers.skip(5).toList();
+    final members = _isDesktop ? allMembers.skip(5).toList() : allMembers;
 
     // Create a local copy of selected UIDs for the dialog
     Set<String> tempSelectedUids = Set.from(_selectedAssigneeUids);
@@ -1031,6 +1064,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   void dispose() {
+    ProjectSocketService().removeListener(_handleSocketEvent);
     _pageController.removeListener(_onPageControllerChange);
     _pageController.dispose();
     _searchController.dispose();
@@ -1164,19 +1198,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onWillAccept: (task) {
         return task != null && _isValidTransition(task.status, status);
       },
-      onAccept: (task) async {
+      onAccept: (task) {
         _isDragging = false;
         _edgeHoverStart = null;
         _shouldTrackPageChanges = false;
 
-        try {
-          await vm.updateTaskStatus(taskId: task.id, status: status);
-        } catch (_) {
-          if (mounted) {
-            _showAccessRevokedDialog();
-          }
-          return;
-        }
+        vm.updateTaskStatus(taskId: task.id, status: status);
 
         _shouldTrackPageChanges = true;
       },
@@ -1313,7 +1340,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               color: Colors.transparent,
                               child: SizedBox(
                                 width: kIsWeb
-                                    ? MediaQuery.of(context).size.width / 4 - 60
+                                    ? _isDesktop
+                                          ? (MediaQuery.of(context).size.width -
+                                                    96) /
+                                                4 // 4 columns
+                                          : (MediaQuery.of(context).size.width -
+                                                    56) /
+                                                2 // 2 columns (tablet)
                                     : 280,
                                 child: _taskCard(
                                   context,
@@ -1651,14 +1684,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final userVm = context.watch<UserViewModel>();
     final authVm = context.watch<AuthViewModel>();
     final currentUserId = authVm.uid;
-
     final members = userVm.users.toList();
 
-    // Determine if mobile based on width
-    final isMobile = MediaQuery.of(context).size.width < 600;
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.dark
             ? Colors.grey.shade900
@@ -1673,11 +1702,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: Row(
         children: [
-          // Search bar - responsive width
-          SizedBox(
-            width: isMobile ? 210 : 280,
+          // Search bar with flexible width
+          Flexible(
+            flex: 3,
             child: Container(
-              height: 40,
+              height: 38,
+              constraints: const BoxConstraints(maxWidth: 280),
               decoration: BoxDecoration(
                 color: Theme.of(context).brightness == Brightness.dark
                     ? Colors.grey.shade800
@@ -1688,55 +1718,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Search tasks...',
+                  hintText: 'Search...',
                   hintStyle: TextStyle(
                     color: Colors.grey.shade500,
-                    fontSize: 14,
+                    fontSize: 13,
                   ),
                   prefixIcon: Icon(
                     Icons.search,
                     color: Colors.grey.shade500,
-                    size: 20,
+                    size: 18,
                   ),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: Icon(
                             Icons.clear,
                             color: Colors.grey.shade500,
-                            size: 18,
+                            size: 16,
                           ),
-                          onPressed: () {
-                            _searchController.clear();
-                          },
+                          onPressed: () => _searchController.clear(),
                         )
                       : null,
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
+                    horizontal: 12,
+                    vertical: 9,
                   ),
                 ),
-                style: const TextStyle(fontSize: 14),
+                style: const TextStyle(fontSize: 13),
               ),
             ),
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
 
-          // Conditional rendering based on platform
+          // Filters - always inline
           if (members.isNotEmpty)
-            isMobile
+            _isMobile
+                ? _buildMobileFilters(context)
+                : _isTablet
                 ? _buildMobileFilters(context)
                 : _buildDesktopFilters(context, members, currentUserId),
 
           const Spacer(),
 
-          // Active filter count badge (only show on desktop when multi-select is active)
-          if (!isMobile &&
-              _isFilterActive &&
-              _selectedAssigneeUids.length > 1) ...[
+          // Active filter badge
+          if (_isFilterActive && _selectedAssigneeUids.length > 1)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(16),
@@ -1749,37 +1777,82 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Icon(
                     Icons.filter_alt,
-                    size: 16,
+                    size: 14,
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '${_selectedAssigneeUids.length} filters',
+                    '${_selectedAssigneeUids.length}',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                   const SizedBox(width: 4),
                   InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedAssigneeUids.clear();
-                        _isFilterActive = false;
-                      });
-                    },
+                    onTap: () => setState(() {
+                      _selectedAssigneeUids.clear();
+                      _isFilterActive = false;
+                    }),
                     child: Icon(
                       Icons.close,
-                      size: 16,
+                      size: 14,
                       color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabletLayout(TaskViewModel vm) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
+          // Row 1: TODO + IN_PROGRESS
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 420,
+                  child: _buildColumn(context, 'TODO', vm),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                  height: 420,
+                  child: _buildColumn(context, 'IN_PROGRESS', vm),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Row 2: QA + DONE
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 420,
+                  child: _buildColumn(context, 'QA', vm),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: SizedBox(
+                  height: 420,
+                  child: _buildColumn(context, 'DONE', vm),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1912,18 +1985,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 // Main content
                 Expanded(
                   child: kIsWeb
-                      ? Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: sections.map((status) {
-                              return Expanded(
-                                // Add Expanded here for web columns
-                                child: _buildColumn(context, status, vm),
-                              );
-                            }).toList(),
-                          ),
-                        )
+                      ? _isDesktop
+                            ? Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: sections.map((status) {
+                                    return Expanded(
+                                      child: _buildColumn(context, status, vm),
+                                    );
+                                  }).toList(),
+                                ),
+                              )
+                            : _buildTabletLayout(vm)
                       : Listener(
                           onPointerMove: (e) =>
                               _handleAutoScroll(e.position, context),

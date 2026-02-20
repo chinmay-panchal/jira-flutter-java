@@ -152,8 +152,8 @@ class _CreateProjectDialogState extends State<CreateProjectDialog> {
         ElevatedButton(
           onPressed: deadline == null
               ? null
-              : () async {
-                  await context.read<ProjectViewModel>().createProject(
+              : () {
+                  context.read<ProjectViewModel>().createProject(
                     ProjectFormModel(
                       name: nameCtrl.text.trim(),
                       description: descCtrl.text.trim(),

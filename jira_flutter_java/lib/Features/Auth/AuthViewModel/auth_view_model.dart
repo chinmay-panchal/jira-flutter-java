@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:jira_flutter_java/Core/data/repository/app_repository.dart';
 import 'package:jira_flutter_java/Core/network/global_app.dart';
+import 'package:jira_flutter_java/Core/socket/project_socket_service.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthView/login_screen.dart';
 import '../../../Core/storage/token_storage.dart';
 import '../AuthModel/login_request.dart';
@@ -283,6 +284,7 @@ class AuthViewModel extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    ProjectSocketService().disconnect();
     await FirebaseAuth.instance.signOut();
     await TokenStorage.clearToken();
 

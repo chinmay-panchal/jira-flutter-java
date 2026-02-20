@@ -19,37 +19,40 @@ class AppDataSource extends DataSource {
 
   Map<String, String> get header => {'Content-Type': 'application/json'};
 
-  Future<Map<String, String>> get authHeader async => {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer ${await TokenStorage.getToken()}',
-  };
+  Future<Map<String, String>> get authHeader async {
+    final token = await TokenStorage.getToken();
+    print('TOKEN: $token');
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
 
   Future<void> _handle401(http.Response response) async {
-    if (response.statusCode == 401) {
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      // Check if it's a project access revoked case — let _handleError deal with that
+      if (response.statusCode == 403 && response.body.isNotEmpty) {
+        try {
+          final body = jsonDecode(response.body);
+          if (body is Map && body['code'] == 'PROJECT_ACCESS_REVOKED') return;
+        } catch (_) {}
+      }
+
       await TokenStorage.clearToken();
-      GlobalApp.showSnackBar('Session expired. Please login again.');
-      GlobalApp.navigatorKey.currentState?.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (_) => false,
-      );
+      GlobalApp.showSessionExpiredDialog();
       throw Exception('Unauthorized');
     }
   }
 
   void _handleError(http.Response response) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final body = jsonDecode(response.body);
-
-      if (response.statusCode == 403 &&
-          body is Map &&
-          body['code'] == 'PROJECT_ACCESS_REVOKED') {
-        throw Exception('PROJECT_ACCESS_REVOKED');
+      if (response.body.isEmpty) {
+        throw Exception('Request failed with status: ${response.statusCode}');
       }
-
+      final body = jsonDecode(response.body);
       throw Exception(body['message'] ?? 'Request failed');
     }
   }
-
   /* -------- AUTH -------- */
 
   @override

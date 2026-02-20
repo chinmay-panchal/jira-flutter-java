@@ -6,8 +6,10 @@ import lombok.Setter;
 @Getter
 @Setter
 public class UpdateTaskRequest {
+    private Long taskId;     // add this
+    private String status;   // add this
     private String title;
     private String description;
-    private String assignedUserUid; // null = unassign
-    private boolean unassign; // explicit flag to set assignedTo = null
+    private String assignedUserUid;
+    private boolean unassign;
 }

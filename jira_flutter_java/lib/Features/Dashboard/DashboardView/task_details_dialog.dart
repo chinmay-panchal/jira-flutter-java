@@ -113,33 +113,17 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
       return;
     }
 
-    setState(() => _isSaving = true);
+    widget.taskVm.updateTask(
+      taskId: widget.task.id,
+      title: newTitle != widget.task.title ? newTitle : null,
+      description: newDesc != widget.task.description ? newDesc : null,
+      assignedUserUid: _selectedAssigneeUid != widget.task.assignedUserUid
+          ? _selectedAssigneeUid
+          : null,
+      unassign: false,
+    );
 
-    try {
-      await widget.taskVm.updateTask(
-        taskId: widget.task.id,
-        title: newTitle != widget.task.title ? newTitle : null,
-        description: newDesc != widget.task.description ? newDesc : null,
-        assignedUserUid: _selectedAssigneeUid != widget.task.assignedUserUid
-            ? _selectedAssigneeUid
-            : null,
-        unassign: false,
-      );
-
-      if (context.mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Task updated successfully')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-        );
-      }
-    }
+    if (context.mounted) Navigator.pop(context);
   }
 
   void _cancelEdit() {
@@ -327,14 +311,8 @@ class _TaskDetailDialogState extends State<TaskDetailDialog> {
                 child: const Text('Cancel'),
               ),
               ElevatedButton.icon(
-                onPressed: _isSaving ? null : () => _save(context),
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.check, size: 18),
+                onPressed: () => _save(context),
+                icon: const Icon(Icons.check, size: 18),
                 label: const Text('Save'),
                 style: ElevatedButton.styleFrom(
                   shape: RoundedRectangleBorder(

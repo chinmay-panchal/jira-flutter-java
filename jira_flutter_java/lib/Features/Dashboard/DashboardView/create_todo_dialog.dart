@@ -167,13 +167,12 @@ class _CreateTodoDialogState extends State<CreateTodoDialog> {
               : () async {
                   final currentContext = context;
                   try {
-                    await widget.taskVm.createTask(
+                    widget.taskVm.createTask(
                       projectId: widget.projectId,
                       title: titleCtrl.text.trim(),
                       description: descCtrl.text.trim(),
                       assignedUserUid: selectedUids.first,
                     );
-
                     if (mounted) Navigator.pop(currentContext);
                   } catch (_) {
                     if (!mounted) return;

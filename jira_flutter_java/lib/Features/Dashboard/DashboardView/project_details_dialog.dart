@@ -74,38 +74,22 @@ class _ProjectDetailsDialogState extends State<ProjectDetailsDialog> {
       return;
     }
 
-    setState(() => _isSaving = true);
+    // Fire via socket — no await
+    projectVm.updateProject(
+      projectId: project.id,
+      name: newName != project.name ? newName : null,
+      description: _descCtrl.text.trim() != project.description
+          ? _descCtrl.text.trim()
+          : null,
+      deadline:
+          _selectedDeadline != null && _selectedDeadline != project.deadline
+          ? _selectedDeadline
+          : null,
+    );
 
-    try {
-      await projectVm.updateProject(
-        projectId: project.id,
-        name: newName != project.name ? newName : null,
-        description: _descCtrl.text.trim() != project.description
-            ? _descCtrl.text.trim()
-            : null,
-        deadline:
-            _selectedDeadline != null && _selectedDeadline != project.deadline
-            ? _selectedDeadline
-            : null,
-      );
-
-      if (context.mounted) {
-        setState(() {
-          _isEditing = false;
-          _isSaving = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Project updated successfully')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-        );
-      }
-    }
+    // Close edit mode immediately — UI will update when socket event arrives
+    setState(() => _isEditing = false);
+    Navigator.pop(context);
   }
 
   /// Opens MemberSelectDialog showing only users NOT already in the project.
@@ -143,14 +127,11 @@ class _ProjectDetailsDialogState extends State<ProjectDetailsDialog> {
 
     try {
       for (final uid in result) {
-        await projectVm.addMember(projectId: project.id, memberUid: uid);
+        projectVm.addMember(projectId: project.id, memberUid: uid); // no await
       }
       if (context.mounted) {
-        await userVm.refreshProjectMembers(project.id);
         setState(() => _isAddingMember = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Member(s) added successfully')),
-        );
+        Navigator.pop(context); // close dialog, list updates via socket
       }
     } catch (e) {
       if (context.mounted) {
@@ -443,19 +424,12 @@ class _ProjectDetailsDialogState extends State<ProjectDetailsDialog> {
                               color: colorScheme.error,
                               tooltip: 'Remove member',
                               iconSize: 20,
-                              onPressed: () async {
-                                final projectVm = context
-                                    .read<ProjectViewModel>();
-                                final userVm = context.read<UserViewModel>();
-                                await projectVm.removeMember(
+                              onPressed: () {
+                                context.read<ProjectViewModel>().removeMember(
                                   projectId: project.id,
                                   memberUid: uid,
                                 );
-                                if (context.mounted) {
-                                  await userVm.refreshProjectMembers(
-                                    project.id,
-                                  );
-                                }
+                                Navigator.pop(context);
                               },
                             ),
                         ],
