@@ -104,7 +104,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String _getAssigneeName(BuildContext context, String? uid) {
-    if (uid == null) return 'Unassigned';
+    if (uid == null) return 'N/A';
 
     final userVm = context.watch<UserViewModel>();
 
@@ -134,7 +134,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String _getFullName(BuildContext context, String? uid) {
-    if (uid == null) return 'Unassigned';
+    if (uid == null) return 'N/A';
 
     final userVm = context.read<UserViewModel>();
     final user = userVm.users.firstWhereOrNull((u) => u.uid == uid);
@@ -912,6 +912,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return filtered;
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // REPLACE only the _taskCard() method in dashboard_screen.dart with this.
+  // Everything else in that file stays exactly the same.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // REPLACE only the _taskCard() method in dashboard_screen.dart with this.
+  // ─────────────────────────────────────────────────────────────────────────────
+
   Widget _taskCard(
     BuildContext context,
     TaskModel task, {
@@ -921,6 +930,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final assigneeName = _getAssigneeName(context, task.assignedUserUid);
     final color = accentColor ?? Theme.of(context).colorScheme.primary;
     final avatarColor = _getAvatarColor(assigneeName);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Format points label: "3 pts" or "1 pt" or "1.5 pts"
+    String? pointsLabel;
+    if (task.storyPoints != null) {
+      final pts = task.storyPoints!;
+      final ptsStr = pts == pts.truncateToDouble()
+          ? pts.toInt().toString()
+          : pts.toStringAsFixed(1);
+      pointsLabel = '$ptsStr ${pts == 1.0 ? 'PT' : 'PTS'}';
+    }
 
     return InkWell(
       onTap: isDragging
@@ -932,10 +952,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
               if (project == null) return;
               showDialog(
                 context: context,
-                builder: (_) => TaskDetailDialog(
-                  task: task,
-                  project: project,
-                  taskVm: context.read<TaskViewModel>(),
+                builder: (dialogCtx) => ChangeNotifierProvider.value(
+                  value: context.read<TaskViewModel>(),
+                  child: Consumer<TaskViewModel>(
+                    builder: (_, taskVm, __) {
+                      final liveTask = taskVm.tasks.firstWhere(
+                        (t) => t.id == task.id,
+                        orElse: () => task,
+                      );
+                      return TaskDetailDialog(
+                        task: liveTask,
+                        project: project,
+                        taskVm: taskVm,
+                      );
+                    },
+                  ),
                 ),
               );
             },
@@ -973,7 +1004,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title
+              // ── Title ──────────────────────────────────────────────────
               Text(
                 task.title,
                 style: const TextStyle(
@@ -985,7 +1016,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
 
-              // Description (if exists)
+              // ── Description ────────────────────────────────────────────
               if (task.description.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Text(
@@ -1002,18 +1033,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               const SizedBox(height: 12),
 
-              // Ticket number and Assignee avatar on same row
+              // ── Bottom row ─────────────────────────────────────────────
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // Ticket chip
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.15),
+                      color: color.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -1026,7 +1057,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   ),
-                  // Only avatar circle - no full name
+
+                  // Story points pill — neutral, minimal, won't clash with any theme
+                  if (pointsLabel != null) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.bolt_rounded,
+                            size: 16,
+                            color: Colors.amber,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            pointsLabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: color,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const Spacer(),
+
+                  // Assignee avatar
                   Tooltip(
                     message: _getFullName(context, task.assignedUserUid),
                     child: CircleAvatar(
@@ -1195,10 +1264,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     return DragTarget<TaskModel>(
-      onWillAccept: (task) {
-        return task != null && _isValidTransition(task.status, status);
+      onWillAcceptWithDetails: (details) {
+        return _isValidTransition(details.data.status, status);
       },
-      onAccept: (task) {
+      onAcceptWithDetails: (details) {
+        final task = details.data;
         _isDragging = false;
         _edgeHoverStart = null;
         _shouldTrackPageChanges = false;
@@ -1589,7 +1659,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   );
-                }).toList(),
+                }),
 
                 if (remainingCount > 0)
                   AnimatedPositioned(

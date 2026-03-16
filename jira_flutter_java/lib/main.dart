@@ -13,7 +13,6 @@ import 'Features/Auth/AuthViewModel/auth_view_model.dart';
 import 'Features/Project/ProjectView/project_list_screen.dart';
 import 'Features/Project/ProjectViewModel/project_view_model.dart';
 import 'Features/User/UserViewModel/user_view_model.dart';
-import 'Features/Dashboard/DashboardViewModel/task_view_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

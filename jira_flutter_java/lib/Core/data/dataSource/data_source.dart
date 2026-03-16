@@ -1,6 +1,7 @@
 import 'package:jira_flutter_java/Features/Auth/AuthModel/login_request.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthModel/login_response.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthModel/signup_request.dart';
+import 'package:jira_flutter_java/Features/Dashboard/DashboardModel/task_history_model.dart';
 import 'package:jira_flutter_java/Features/Project/ProjectModel/project_request.dart';
 import 'package:jira_flutter_java/Features/Project/ProjectModel/project_response.dart';
 import 'package:jira_flutter_java/Features/Dashboard/DashboardModel/task_model.dart';
@@ -33,6 +34,8 @@ abstract class DataSource {
 
   /* -------- TASK -------- */
   Future<List<TaskModel>> getTasksByProject(int projectId);
+  Future<List<TaskHistoryModel>> getTaskHistory(int taskId);
+
   Future<void> createTask({
     required int projectId,
     required String title,

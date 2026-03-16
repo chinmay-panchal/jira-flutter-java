@@ -15,6 +15,8 @@ public class TaskResponse {
     private TaskStatus status;
     private Long projectId;
     private String assignedUserUid;
+    private String createdByUid;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Double storyPoints;
 }

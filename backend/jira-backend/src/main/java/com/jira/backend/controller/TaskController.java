@@ -1,6 +1,7 @@
 package com.jira.backend.controller;
 
 import com.jira.backend.dto.CreateTaskRequest;
+import com.jira.backend.dto.TaskHistoryResponse;
 import com.jira.backend.dto.TaskResponse;
 import com.jira.backend.dto.UpdateTaskRequest;
 import com.jira.backend.dto.UpdateTaskStatusRequest;
@@ -8,6 +9,7 @@ import com.jira.backend.service.TaskService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/tasks")
@@ -38,12 +40,28 @@ public class TaskController {
         return taskService.updateTaskStatus(taskId, request);
     }
 
-    // ✅ EDIT TASK (creator only) — title, description, assignee
     @PatchMapping("/{taskId}")
     public TaskResponse updateTask(
             @PathVariable Long taskId,
             @RequestBody UpdateTaskRequest request
     ) {
         return taskService.updateTask(taskId, request);
+    }
+
+    @PatchMapping("/{taskId}/move")
+    public TaskResponse moveTask(
+            @PathVariable Long taskId,
+            @RequestBody Map<String, Long> body
+    ) {
+        Long targetProjectId = body.get("targetProjectId");
+        if (targetProjectId == null) {
+            throw new RuntimeException("targetProjectId is required");
+        }
+        return taskService.moveTask(taskId, targetProjectId);
+    }
+
+    @GetMapping("/{taskId}/history")
+    public List<TaskHistoryResponse> getTaskHistory(@PathVariable Long taskId) {
+        return taskService.getTaskHistory(taskId);
     }
 }

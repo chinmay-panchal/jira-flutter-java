@@ -10,4 +10,5 @@ public class CreateTaskRequest {
     private String description;
     private String assignedUserUid;
     private Long projectId;
+    private Double storyPoints; // null = unestimated, supports decimals like 1.5
 }
