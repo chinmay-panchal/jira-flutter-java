@@ -17,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -71,8 +72,22 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: passwordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(hintText: "Password"),
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
+                        hintText: "Password",
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
+                      ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Password is required';

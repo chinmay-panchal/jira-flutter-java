@@ -59,7 +59,6 @@ class ProjectSocketEvent {
 }
 
 class ProjectSocketService {
-  // Singleton — one instance for the entire app lifetime
   static final ProjectSocketService _instance =
       ProjectSocketService._internal();
   factory ProjectSocketService() => _instance;
@@ -76,10 +75,8 @@ class ProjectSocketService {
 
     _client = StompClient(
       config: StompConfig(
-        url: _baseUrl, // Stage 1 happens here
-        stompConnectHeaders: {
-          'Authorization': 'Bearer $token',
-        }, // Stage 2 JWT goes here
+        url: _baseUrl,
+        stompConnectHeaders: {'Authorization': 'Bearer $token'},
         webSocketConnectHeaders: {'Authorization': 'Bearer $token'},
         onConnect: _onConnect,
         onDisconnect: (_) {
@@ -111,7 +108,7 @@ class ProjectSocketService {
         try {
           final json = jsonDecode(frame.body!) as Map<String, dynamic>;
           final event = ProjectSocketEvent.fromJson(json);
-          _dispatch(event); // ← change this from onEvent?.call(event)
+          _dispatch(event);
         } catch (e) {
           // malformed frame, ignore
         }
@@ -119,21 +116,29 @@ class ProjectSocketService {
     );
   }
 
-  void sendCreate(Map<String, dynamic> payload) {
-    _send('/app/projects.create', payload);
-  }
+  void sendCreate(Map<String, dynamic> payload) =>
+      _send('/app/projects.create', payload);
 
-  void sendUpdate(Map<String, dynamic> payload) {
-    _send('/app/projects.update', payload);
-  }
+  void sendUpdate(Map<String, dynamic> payload) =>
+      _send('/app/projects.update', payload);
 
-  void sendAddMember(Map<String, dynamic> payload) {
-    _send('/app/projects.addMember', payload);
-  }
+  void sendAddMember(Map<String, dynamic> payload) =>
+      _send('/app/projects.addMember', payload);
 
-  void sendRemoveMember(Map<String, dynamic> payload) {
-    _send('/app/projects.removeMember', payload);
-  }
+  void sendRemoveMember(Map<String, dynamic> payload) =>
+      _send('/app/projects.removeMember', payload);
+
+  void sendCreateTask(Map<String, dynamic> payload) =>
+      _send('/app/tasks.create', payload);
+
+  void sendUpdateTaskStatus(Map<String, dynamic> payload) =>
+      _send('/app/tasks.updateStatus', payload);
+
+  void sendUpdateTask(Map<String, dynamic> payload) =>
+      _send('/app/tasks.update', payload);
+
+  void sendMoveTask(Map<String, dynamic> payload) =>
+      _send('/app/tasks.move', payload);
 
   void _send(String destination, Map<String, dynamic> payload) {
     if (_client == null || !_isConnected) return;
@@ -147,10 +152,6 @@ class ProjectSocketService {
 
   final List<void Function(ProjectSocketEvent)> _listeners = [];
 
-  // void addListener(listener)     → "I want to know about events"
-  // void removeListener(listener)  → "I no longer care about events"
-  // void _dispatch(event)          → "tell ALL listeners about this event"
-
   void addListener(void Function(ProjectSocketEvent) listener) {
     _listeners.add(listener);
   }
@@ -159,26 +160,12 @@ class ProjectSocketService {
     _listeners.remove(listener);
   }
 
-  // Replace onEvent with this in _onConnect callback:
   void _dispatch(ProjectSocketEvent event) {
     for (final listener in _listeners) {
       listener(event);
     }
   }
 
-  void sendCreateTask(Map<String, dynamic> payload) {
-    _send('/app/tasks.create', payload);
-  }
-
-  void sendUpdateTaskStatus(Map<String, dynamic> payload) {
-    _send('/app/tasks.updateStatus', payload);
-  }
-
-  void sendUpdateTask(Map<String, dynamic> payload) {
-    _send('/app/tasks.update', payload);
-  }
-
-  /// Called only on logout — full cleanup
   void disconnect() {
     _client?.deactivate();
     _client = null;

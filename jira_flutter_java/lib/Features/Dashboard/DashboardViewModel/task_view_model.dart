@@ -10,6 +10,7 @@ class TaskViewModel extends ChangeNotifier {
   TaskViewModel(this.repo);
 
   bool _disposed = false;
+  bool _listenerRegistered = false;
   bool isLoading = false;
   List<TaskModel> tasks = [];
   int? _currentProjectId;
@@ -30,8 +31,10 @@ class TaskViewModel extends ChangeNotifier {
     isLoading = false;
     _safeNotify();
 
-    _socketService.removeListener(_handleSocketEvent); // remove first
-    _socketService.addListener(_handleSocketEvent); // then add once
+    if (!_listenerRegistered) {
+      _socketService.addListener(_handleSocketEvent);
+      _listenerRegistered = true;
+    }
   }
 
   // ─── SOCKET EVENT HANDLER ────────────────────────────────────────────────────
@@ -109,19 +112,20 @@ class TaskViewModel extends ChangeNotifier {
     required String title,
     required String description,
     String? assignedUserUid,
+    double? storyPoints,
   }) {
     _socketService.sendCreateTask({
       'projectId': projectId,
       'title': title,
       'description': description,
-      'assignedUserUid': assignedUserUid,
+      if (assignedUserUid != null) 'assignedUserUid': assignedUserUid,
+      if (storyPoints != null) 'storyPoints': storyPoints,
     });
   }
 
   void updateTaskStatus({required int taskId, required String status}) {
     if (_currentProjectId == null) return;
 
-    // Optimistic update
     final index = tasks.indexWhere((t) => t.id == taskId);
     if (index != -1) {
       tasks[index] = tasks[index].copyWith(status: status);
@@ -137,7 +141,23 @@ class TaskViewModel extends ChangeNotifier {
     String? description,
     String? assignedUserUid,
     bool unassign = false,
+    double? storyPoints,
   }) {
+    final index = tasks.indexWhere((t) => t.id == taskId);
+    if (index != -1) {
+      tasks[index] = tasks[index].copyWith(
+        title: title,
+        description: description,
+        assignedUserUid: unassign
+            ? null
+            : (assignedUserUid ?? tasks[index].assignedUserUid),
+        storyPoints: storyPoints == 0.0
+            ? null
+            : (storyPoints ?? tasks[index].storyPoints),
+      );
+      _safeNotify();
+    }
+
     _socketService.sendUpdateTask({
       'taskId': taskId,
       if (title != null) 'title': title,
@@ -146,6 +166,21 @@ class TaskViewModel extends ChangeNotifier {
         'unassign': true
       else if (assignedUserUid != null)
         'assignedUserUid': assignedUserUid,
+      if (storyPoints != null) 'storyPoints': storyPoints,
+    });
+  }
+
+  /// Moves a task to [targetProjectId].
+  /// Optimistically removes the task from the current board immediately.
+  /// The socket TASK_CREATED event on the target board will add it there.
+  void moveTask({required int taskId, required int targetProjectId}) {
+    // Optimistic: remove from current project board immediately
+    tasks.removeWhere((t) => t.id == taskId);
+    _safeNotify();
+
+    _socketService.sendMoveTask({
+      'taskId': taskId,
+      'targetProjectId': targetProjectId,
     });
   }
 
@@ -165,7 +200,10 @@ class TaskViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _socketService.removeListener(_handleSocketEvent);
+    if (_listenerRegistered) {
+      _socketService.removeListener(_handleSocketEvent);
+      _listenerRegistered = false;
+    }
     super.dispose();
   }
 }

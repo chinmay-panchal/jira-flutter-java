@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter/material.dart';
 import 'package:jira_flutter_java/Core/data/dataSource/data_source.dart';
 import 'package:jira_flutter_java/Core/network/api_constants.dart';
 import 'package:jira_flutter_java/Core/network/global_app.dart';
@@ -8,7 +7,7 @@ import 'package:jira_flutter_java/Core/storage/token_storage.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthModel/login_request.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthModel/login_response.dart';
 import 'package:jira_flutter_java/Features/Auth/AuthModel/signup_request.dart';
-import 'package:jira_flutter_java/Features/Auth/AuthView/login_screen.dart';
+import 'package:jira_flutter_java/Features/Dashboard/DashboardModel/task_history_model.dart';
 import 'package:jira_flutter_java/Features/Dashboard/DashboardModel/task_model.dart';
 import 'package:jira_flutter_java/Features/Project/ProjectModel/project_request.dart';
 import 'package:jira_flutter_java/Features/Project/ProjectModel/project_response.dart';
@@ -224,7 +223,6 @@ class AppDataSource extends DataSource {
     _handleError(response);
   }
 
-  // ✅ EDIT TASK (creator only) — title, description, assignee
   @override
   Future<TaskModel> updateTask({
     required int taskId,
@@ -276,5 +274,17 @@ class AppDataSource extends DataSource {
     _handleError(response);
     final list = jsonDecode(response.body) as List;
     return list.map((e) => UserModel.fromJson(e)).toList();
+  }
+
+  @override
+  Future<List<TaskHistoryModel>> getTaskHistory(int taskId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/tasks/$taskId/history'),
+      headers: await authHeader,
+    );
+    await _handle401(response);
+    _handleError(response);
+    final list = jsonDecode(response.body) as List;
+    return list.map((e) => TaskHistoryModel.fromJson(e)).toList();
   }
 }

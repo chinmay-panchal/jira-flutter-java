@@ -1,3 +1,5 @@
+import 'package:jira_flutter_java/Features/Dashboard/DashboardModel/task_history_model.dart';
+
 import '../dataSource/data_source.dart';
 import '../../../Features/Auth/AuthModel/login_request.dart';
 import '../../../Features/Auth/AuthModel/login_response.dart';
@@ -64,6 +66,9 @@ class AppRepository {
 
   Future<List<TaskModel>> getTasksByProject(int projectId) =>
       _dataSource.getTasksByProject(projectId);
+
+  Future<List<TaskHistoryModel>> getTaskHistory(int taskId) =>
+      _dataSource.getTaskHistory(taskId);
 
   Future<void> createTask({
     required int projectId,

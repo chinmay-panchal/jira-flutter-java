@@ -112,6 +112,22 @@ class _MemberSelectDialogState extends State<MemberSelectDialog> {
                         final isYou = u.uid == authVm.uid;
 
                         return ListTile(
+                          selected: widget.singleSelect && selected,
+                          selectedTileColor: colorScheme.primary.withOpacity(
+                            0.08,
+                          ),
+                          onTap: () {
+                            setState(() {
+                              if (widget.singleSelect) {
+                                selectedUids.clear();
+                                if (!selected) selectedUids.add(u.uid);
+                              } else {
+                                selected
+                                    ? selectedUids.remove(u.uid)
+                                    : selectedUids.add(u.uid);
+                              }
+                            });
+                          },
                           title: Text(
                             isYou ? 'You' : '${u.firstName} ${u.lastName}',
                             style: TextStyle(
@@ -121,21 +137,18 @@ class _MemberSelectDialogState extends State<MemberSelectDialog> {
                             ),
                           ),
                           subtitle: Text(u.email),
-                          trailing: Checkbox(
-                            value: selected,
-                            onChanged: (v) {
-                              setState(() {
-                                if (widget.singleSelect) {
-                                  selectedUids.clear();
-                                  if (v == true) selectedUids.add(u.uid);
-                                } else {
-                                  v == true
-                                      ? selectedUids.add(u.uid)
-                                      : selectedUids.remove(u.uid);
-                                }
-                              });
-                            },
-                          ),
+                          trailing: widget.singleSelect
+                              ? null
+                              : Checkbox(
+                                  value: selected,
+                                  onChanged: (v) {
+                                    setState(() {
+                                      v == true
+                                          ? selectedUids.add(u.uid)
+                                          : selectedUids.remove(u.uid);
+                                    });
+                                  },
+                                ),
                         );
                       },
                     ),

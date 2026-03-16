@@ -21,7 +21,7 @@ public class Task {
     @Column(nullable = false)
     private String title;
 
-    @Column(length = 500)
+    @Column(length = 5000)
     private String description;
 
     @Enumerated(EnumType.STRING)
@@ -36,11 +36,18 @@ public class Task {
     @JoinColumn(name = "assigned_user_id")
     private User assignedTo;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_user_id", nullable = false)
+    private User createdBy;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    @Column(nullable = true)
+    private Double storyPoints; // null = unestimated, supports decimals like 1.5
 
     @PrePersist
     public void prePersist() {

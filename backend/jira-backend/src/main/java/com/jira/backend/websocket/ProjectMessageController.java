@@ -6,14 +6,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import com.jira.backend.service.TaskService;
-import com.jira.backend.dto.UpdateTaskStatusRequest;
-import com.jira.backend.dto.UpdateTaskRequest;
-import com.jira.backend.dto.CreateTaskRequest;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
+import java.util.Map;
 
 @Controller
 @RequiredArgsConstructor
@@ -57,5 +54,12 @@ public class ProjectMessageController {
     @MessageMapping("/tasks.update")
     public void updateTask(@Payload UpdateTaskRequest request, Principal principal) {
         taskService.updateTaskForUser(request.getTaskId(), request, principal.getName());
+    }
+
+    @MessageMapping("/tasks.move")
+    public void moveTask(@Payload Map<String, Object> payload, Principal principal) {
+        Long taskId = ((Number) payload.get("taskId")).longValue();
+        Long targetProjectId = ((Number) payload.get("targetProjectId")).longValue();
+        taskService.moveTaskForUser(taskId, targetProjectId, principal.getName());
     }
 }

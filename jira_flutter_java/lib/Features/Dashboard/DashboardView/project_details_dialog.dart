@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:jira_flutter_java/Features/User/UserModel/user_model.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -20,7 +19,7 @@ class ProjectDetailsDialog extends StatefulWidget {
 
 class _ProjectDetailsDialogState extends State<ProjectDetailsDialog> {
   bool _isEditing = false;
-  bool _isSaving = false;
+  final bool _isSaving = false;
 
   late TextEditingController _nameCtrl;
   late TextEditingController _descCtrl;
